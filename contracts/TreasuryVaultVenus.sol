@@ -6,18 +6,21 @@ import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 
 // inherited
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 
 // interfaces
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./Interfaces/IComptroller.sol";
 import "./Interfaces/IVToken.sol";
 
-contract TreasuryVaultVenus is Ownable, Initializable, ReentrancyGuard {
+contract TreasuryVaultVenus is
+    AccessControlUpgradeable,
+    ReentrancyGuardUpgradeable
+{
     using SafeERC20 for IERC20;
     using SafeMath for uint256;
+
+    bytes32 private constant MAINTAINER = keccak256("MAINTAINER");
 
     IERC20 public asset;
 
@@ -27,6 +30,8 @@ contract TreasuryVaultVenus is Ownable, Initializable, ReentrancyGuard {
     IComptroller public vComptroller;
 
     uint256 public vaultBalance;
+
+    address public dev;
 
     // EVENTS
     event TreasuryChanged(address indexed newTreasury);
@@ -43,13 +48,27 @@ contract TreasuryVaultVenus is Ownable, Initializable, ReentrancyGuard {
         _;
     }
 
+    modifier onlyOwner() {
+        require(hasRole(MAINTAINER, msg.sender), "Sender is not a maintainer");
+        _;
+    }
+
     // Constructor
 
     function initialize(
+        address _dev,
         address _asset,
         address _treasury,
         address _vToken
-    ) external initializer onlyOwner {
+    ) external initializer {
+        __AccessControl_init();
+        __ReentrancyGuard_init();
+
+        _setupRole(DEFAULT_ADMIN_ROLE, _dev);
+        grantRole(MAINTAINER, _dev);
+
+        dev = _dev;
+
         asset = IERC20(_asset);
         treasury = _treasury;
 
@@ -82,7 +101,7 @@ contract TreasuryVaultVenus is Ownable, Initializable, ReentrancyGuard {
             profit = newBalance - vaultBalance;
         }
         if (profit > 0) {
-            asset.safeTransfer(owner(), profit);
+            asset.safeTransfer(dev, profit);
             newBalance = asset.balanceOf(address(this)); // withdraw everything in vault
         }
 
@@ -96,7 +115,7 @@ contract TreasuryVaultVenus is Ownable, Initializable, ReentrancyGuard {
         uint256 unclaimedRewards = getUnclaimedIncentiveRewardsBalance();
         address[] memory _tokens = new address[](1);
         _tokens[0] = address(vToken);
-        vComptroller.claimVenus(owner(), _tokens); // claim directly to owner
+        vComptroller.claimVenus(dev, _tokens); // claim directly to owner
         emit IncentivesClaimed(unclaimedRewards);
     }
 
@@ -114,6 +133,15 @@ contract TreasuryVaultVenus is Ownable, Initializable, ReentrancyGuard {
             1e18
         );
         return assetBalance;
+    }
+
+    function getProfit() public view returns (uint256 profit, uint256 penalty) {
+        uint256 balanceAssetFromVToken = balanceOfAsset();
+        if (balanceAssetFromVToken > vaultBalance) {
+            profit = balanceAssetFromVToken.sub(vaultBalance);
+        } else {
+            penalty = vaultBalance.sub(balanceAssetFromVToken);
+        }
     }
 
     function getUnclaimedIncentiveRewardsBalance()
