@@ -11,7 +11,7 @@ import "./SyntheticPool.sol";
 
 contract Synth is ERC20BurnableUpgradeable, AccessControlUpgradeable {
     uint256 public tokenCap;
-    ITWAP synthTWAP;
+    ITWAP public synthTWAP;
 
     bytes32 public constant MAINTAINER = keccak256("MAINTAINER");
     bytes32 public constant MINTER_ROLE = keccak256("MINTER");

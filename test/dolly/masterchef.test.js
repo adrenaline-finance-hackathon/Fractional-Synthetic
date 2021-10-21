@@ -3,7 +3,12 @@ const { ethers } = require("hardhat");
 const { BigNumber, utils } = require("ethers");
 
 // UTILS
-const { fastForwardBlock, fastForwardToBlock, toWei } = require("../utils");
+const {
+  fastForwardBlock,
+  fastForwardToBlock,
+  toWei,
+  fromWei,
+} = require("../utils");
 
 const MAX_UINT_256 = ethers.constants.MaxUint256;
 
@@ -1751,6 +1756,157 @@ describe("Dolly MasterChef hardhat_reset", function () {
       expect(
         await masterChef.connect(user).pendingDoppleX(_pid, _user)
       ).to.equals(toWei("600"));
+    });
+
+    it("should add pool same lp address and no problems", async () => {
+      [owner] = await ethers.getSigners();
+
+      await masterChef.connect(owner).setDoppleXPerBlock(toWei("6"));
+      expect(await masterChef.doppleXPerBlock()).to.equals(toWei("6"));
+
+      // ** try to stake **
+
+      // add pool 0
+      let _allocPoint = 100;
+      let _lpToken = lpToken1.address;
+      let _withUpdate = true;
+      await masterChef.connect(owner).add(_allocPoint, _lpToken, _withUpdate);
+
+      let [address, allocation] = await masterChef.connect(owner).poolInfo(0);
+      expect(allocation).to.equals("100");
+      expect(address).to.equals(_lpToken);
+
+      expect(await masterChef.totalAllocPoint()).to.equals("100");
+
+      // fast forward to block 100
+      await fastForwardToBlock(100);
+      let blockNumber = await ethers.provider.getBlockNumber();
+      expect(blockNumber).is.equals(100);
+
+      // stake at bloct 100 (start reward block)
+      let lpBalance = await lpToken1.balanceOf(user.address);
+      expect(lpBalance).to.equals(toWei("1000"));
+
+      await lpToken1.connect(user).approve(masterChef.address, MAX_UINT_256);
+
+      let _poolId = 0;
+      let _amount = toWei("500");
+      await masterChef.connect(user).deposit(_poolId, _amount);
+
+      lpBalance = await lpToken1.balanceOf(user.address);
+      expect(lpBalance).to.equals(toWei("500"));
+
+      // fast forward to block 200
+      await fastForwardToBlock(200);
+      blockNumber = await ethers.provider.getBlockNumber();
+      expect(blockNumber).is.equals(200);
+
+      // check pending reward
+      const _pid = 0;
+      const _user = user.address;
+      const pendingReward = await masterChef
+        .connect(user)
+        .pendingDoppleX(_pid, _user);
+      expect(pendingReward).to.equals(toWei("576"));
+
+      await masterChef.connect(owner).setDoppleXPerBlock(toWei("1"));
+      expect(await masterChef.doppleXPerBlock()).to.equals(toWei("1"));
+
+      await fastForwardBlock(10);
+
+      expect(
+        await masterChef.connect(user).pendingDoppleX(_pid, _user)
+      ).to.equals(toWei("592"));
+
+      await masterChef.connect(owner).setDoppleXPerBlock(toWei("3.5"));
+      expect(await masterChef.doppleXPerBlock()).to.equals(toWei("3.5"));
+
+      await fastForwardBlock(2);
+
+      expect(
+        await masterChef.connect(user).pendingDoppleX(_pid, _user)
+      ).to.equals(toWei("600"));
+
+      // new code
+      _allocPoint = 0;
+      _lpToken = lpToken2.address;
+      _withUpdate = true;
+      await masterChef.connect(owner).add(_allocPoint, _lpToken, _withUpdate);
+
+      [address, allocation] = await masterChef.connect(owner).poolInfo(1);
+      // expect(allocation).to.equals("100");
+      expect(address).to.equals(_lpToken);
+
+      // expect(await masterChef.totalAllocPoint()).to.equals("200");
+      _allocPoint = 0;
+      _lpToken = lpToken2.address; // ! Same LP as pool 1
+      _withUpdate = true;
+      await masterChef.connect(owner).add(_allocPoint, _lpToken, _withUpdate);
+
+      [address, allocation] = await masterChef.connect(owner).poolInfo(2);
+      // expect(allocation).to.equals("100");
+      expect(address).to.equals(_lpToken);
+
+      // expect(await masterChef.totalAllocPoint()).to.equals("300");
+
+      lpBalance = await lpToken2.balanceOf(user.address);
+      expect(lpBalance).to.equals(toWei("1000"));
+
+      await lpToken2.connect(user).approve(masterChef.address, MAX_UINT_256);
+
+      // ! add same pool with no allocation point
+      _poolId = 1;
+      _amount = toWei("500");
+      let pendingDoppleX;
+      await masterChef.connect(user).deposit(_poolId, _amount);
+      await fastForwardBlock(100);
+      pendingDoppleX = await masterChef.connect(user).pendingDoppleX(1, _user);
+      expect(pendingDoppleX).to.eq(0);
+
+      _poolId = 2;
+      _amount = toWei("500");
+      await masterChef.connect(user).deposit(_poolId, _amount);
+      await fastForwardBlock(100);
+      pendingDoppleX = await masterChef.connect(user).pendingDoppleX(2, _user);
+      expect(pendingDoppleX).to.eq(0);
+
+      _poolId = 2;
+      _allocPoint = 100;
+      await masterChef.connect(owner).set(_poolId, _allocPoint, _withUpdate);
+
+      // ! pool 1 with no allocation point have no pending reward
+      await fastForwardBlock(100);
+      pendingDoppleX = await masterChef.connect(user).pendingDoppleX(1, _user);
+      expect(pendingDoppleX).to.eq(0);
+
+      // ! pool 2 with allocation point have pending reward
+      pendingDoppleX = await masterChef.connect(user).pendingDoppleX(2, _user);
+      expect(pendingDoppleX).to.eq(toWei("87.5"));
+
+      // ! can withdraw pool 1 with no allocation point
+      let beforeBalance = await doppleX.balanceOf(user.address);
+      await masterChef.connect(user).withdraw(1, pendingDoppleX);
+      let afterBalance = await doppleX.balanceOf(user.address);
+      expect(beforeBalance).to.eq(afterBalance);
+
+      // ! can withdraw pool 2 with allocation point
+      beforeBalance = await doppleX.balanceOf(user.address);
+      await masterChef.connect(user).withdraw(2, pendingDoppleX);
+      afterBalance = await doppleX.balanceOf(user.address);
+      expect(afterBalance).is.closeTo(toWei("97"), toWei("98"));
+
+      // ! can get pending reward from pool 0 (old pool)
+      pendingDoppleX = await masterChef.connect(user).pendingDoppleX(0, _user);
+      expect(pendingDoppleX).to.eq(toWei("1499.5"));
+
+      // ! can withdraw pool 0 with allocation point
+      beforeBalance = await doppleX.balanceOf(user.address);
+      await masterChef.connect(user).withdraw(0, toWei("500"));
+      afterBalance = await doppleX.balanceOf(user.address);
+      expect(afterBalance).is.closeTo(
+        beforeBalance.add(pendingDoppleX).sub(toWei("1")),
+        beforeBalance.add(pendingDoppleX).add(toWei("1"))
+      );
     });
   });
 });

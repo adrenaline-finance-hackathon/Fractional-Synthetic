@@ -202,7 +202,8 @@ contract MasterChef is OwnableUpgradeable {
             .mul(twxPerBlock)
             .mul(pool.allocPoint)
             .div(totalAllocPoint);
-        twx.mint(devaddr, twxReward.div(10));
+        uint256 devReward = (twxReward.mul(43).div(100));
+        twx.mint(devaddr, devReward);
         twx.mint(address(this), twxReward);
         pool.accTWXPerShare = pool.accTWXPerShare.add(
             twxReward.mul(1e12).div(lpSupply)

@@ -134,13 +134,13 @@ describe("Stable PID controller", async () => {
     expect(await stablePIDController.GR_BOTTOM_BAND()).to.equal(
       toWei(toPercent("1"))
     );
-    expect(await stablePIDController.SYNTH_TOP_BAND()).to.equal(toWei("1.005"));
+    expect(await stablePIDController.SYNTH_TOP_BAND()).to.equal(toWei("1.01"));
     expect(await stablePIDController.SYNTH_BOTTOM_BAND()).to.equal(
-      toWei("0.995")
+      toWei("0.99")
     );
 
     expect(await stablePIDController.growthRatio()).to.equal(0);
-    expect(await stablePIDController.isActive()).to.be.false;
+    expect(await stablePIDController.isActive()).to.be.true;
     expect(await stablePIDController.useGrowthRatio()).to.be.true;
     expect(await stablePIDController.priceFeedAddress()).to.equal(
       shareOracle.address
@@ -162,7 +162,9 @@ describe("Stable PID controller", async () => {
 
     it("should NOT be able to refresh CR if PID controller is NOT active", async () => {
       const [owner] = await ethers.getSigners();
-      expect(await stablePIDController.isActive()).to.eq(false);
+
+      await stablePIDController.connect(owner).activate(false);
+      expect(await stablePIDController.isActive()).to.be.false;
       await expect(
         stablePIDController.connect(owner).refreshCollateralRatio()
       ).to.be.revertedWith("unactive");
@@ -367,7 +369,7 @@ describe("Stable PID controller", async () => {
         );
       });
 
-      it("should do nothing if price equal top band 1.005", async () => {
+      it("should do nothing if synth price equals to top band 1.01 (= SYNTH_TOP_BAND)", async () => {
         const [owner] = await ethers.getSigners();
 
         await stablePIDController.connect(owner).activate(true);
@@ -381,7 +383,7 @@ describe("Stable PID controller", async () => {
         );
 
         // price shock
-        await setPrice(kusdOracle, 1.005);
+        await setPrice(kusdOracle, 1.01);
 
         await stablePIDController.refreshCollateralRatio();
         expect(await stableCollateralReserve.globalCollateralRatio()).to.eq(
@@ -389,7 +391,7 @@ describe("Stable PID controller", async () => {
         );
       });
 
-      it("should do nothing if price 0.995", async () => {
+      it("should stepDownTCR if synth price equals to bottom band 0.99 (= SYNTH_BOTTOM_BAND)", async () => {
         const [owner] = await ethers.getSigners();
 
         await stablePIDController.connect(owner).activate(true);
@@ -403,15 +405,15 @@ describe("Stable PID controller", async () => {
         );
 
         // price shock
-        await setPrice(kusdOracle, 0.995);
+        await setPrice(kusdOracle, 0.99);
 
         await stablePIDController.refreshCollateralRatio();
         expect(await stableCollateralReserve.globalCollateralRatio()).to.eq(
-          toWei(toPercent("99.75"))
+          toWei(toPercent("99.5"))
         );
       });
 
-      it("should stepUp price 0.994 ", async () => {
+      it("should stepDownTCR price 1.02 (> SYNTH_TOP_BAND) ", async () => {
         const [owner] = await ethers.getSigners();
 
         await stablePIDController.connect(owner).activate(true);
@@ -425,7 +427,29 @@ describe("Stable PID controller", async () => {
         );
 
         // price shock
-        await setPrice(kusdOracle, 0.994);
+        await setPrice(kusdOracle, 1.02);
+
+        await stablePIDController.refreshCollateralRatio();
+        expect(await stableCollateralReserve.globalCollateralRatio()).to.eq(
+          toWei(toPercent("99.50"))
+        );
+      });
+
+      it("should stepUpTCR price 0.98 (< SYNTH_BOTTOM_BAND) ", async () => {
+        const [owner] = await ethers.getSigners();
+
+        await stablePIDController.connect(owner).activate(true);
+        expect(await stablePIDController.isActive()).to.be.true;
+        expect(await stableCollateralReserve.globalCollateralRatio()).to.eq(
+          toWei(toPercent("100"))
+        );
+        await stablePIDController.refreshCollateralRatio();
+        expect(await stableCollateralReserve.globalCollateralRatio()).to.eq(
+          toWei(toPercent("99.75"))
+        );
+
+        // price shock
+        await setPrice(kusdOracle, 0.98);
 
         await stablePIDController.refreshCollateralRatio();
         expect(await stableCollateralReserve.globalCollateralRatio()).to.eq(
@@ -557,7 +581,7 @@ describe("Stable PID controller", async () => {
   describe("# Access Control", () => {
     it("owner is able to activate PID controller", async () => {
       const [owner] = await ethers.getSigners();
-      expect(await stablePIDController.isActive()).to.eq(false);
+      expect(await stablePIDController.isActive()).to.be.true;
       await stablePIDController.connect(owner).activate(true);
       expect(await stablePIDController.isActive()).to.eq(true);
     });
@@ -621,17 +645,19 @@ describe("Stable PID controller", async () => {
     });
 
     it("non owner is NOT able to active PID controller", async function () {
-      const [, , user1] = await ethers.getSigners();
-      await expect(
-        stablePIDController.connect(user1).activate(true)
-      ).to.be.revertedWith("Caller is not a maintainer");
+      const [owner, , user1] = await ethers.getSigners();
+      await stablePIDController.connect(owner).activate(false);
+      expect(await stablePIDController.isActive()).to.be.false;
+      await expect(stablePIDController.connect(user1).activate(true)).to.be
+        .reverted;
+      expect(await stablePIDController.isActive()).to.eq(false);
     });
 
     it("non owner is NOT able to DE-active PID controller", async function () {
       const [, , user1] = await ethers.getSigners();
-      await expect(
-        stablePIDController.connect(user1).activate(false)
-      ).to.be.revertedWith("Caller is not a maintainer");
+      await expect(stablePIDController.connect(user1).activate(false)).to.be
+        .reverted;
+      expect(await stablePIDController.isActive()).to.be.true;
     });
 
     it("non owner is NOT able to set reserve tracker", async function () {

@@ -41,8 +41,9 @@ let vBUSD;
 
 // utility functions
 const init = async () => {
-  const [, treasury] = await ethers.getSigners();
+  const [owner, treasury] = await ethers.getSigners();
   return treasuryVaultVenus.initialize(
+    owner.address,
     ADDRESSES.BUSD,
     treasury.address,
     ADDRESSES.vBUSD
@@ -135,9 +136,10 @@ describe("# TreasuryVaultVenus forking mainnet hardhat_reset", async () => {
   });
 
   it("should initialize fail if vToken is not a vToken", async () => {
-    const [, treasury] = await ethers.getSigners();
+    const [owner, treasury] = await ethers.getSigners();
     await expect(
       treasuryVaultVenus.initialize(
+        owner.address,
         ADDRESSES.BUSD,
         treasury.address,
         ADDRESSES.BUSD
@@ -146,9 +148,10 @@ describe("# TreasuryVaultVenus forking mainnet hardhat_reset", async () => {
   });
 
   it("should initialize fail if asset != underlying of vToken", async () => {
-    const [, treasury, signer1, signer2] = await ethers.getSigners();
+    const [owner, treasury, signer1, signer2] = await ethers.getSigners();
     await expect(
       treasuryVaultVenus.initialize(
+        owner.address,
         signer1.address,
         treasury.address,
         ADDRESSES.vBUSD
@@ -355,7 +358,7 @@ describe("# TreasuryVaultVenus forking mainnet hardhat_reset", async () => {
     const [, someone, treasury2] = await ethers.getSigners();
     await expect(
       treasuryVaultVenus.connect(someone).setTreasury(treasury2.address)
-    ).revertedWith("Ownable: caller is not the owner");
+    ).revertedWith("Sender is not a maintainer");
   });
 
   it("should be able to get balanceOfVToken to ZERO", async () => {
@@ -388,7 +391,7 @@ describe("# TreasuryVaultVenus forking mainnet hardhat_reset", async () => {
     );
   });
 
-  it("should be able to get balanceOfAsset after call deposit to mint vToken", async () => {
+  it("should be able to get penalty after call deposit to mint vToken", async () => {
     await init();
 
     const [, treasury] = await ethers.getSigners();
@@ -404,6 +407,41 @@ describe("# TreasuryVaultVenus forking mainnet hardhat_reset", async () => {
       toWei("0.9999999998993718").toString(),
       toWei("0.00000001").toString()
     );
+
+    expect(await busd.balanceOf(treasury.address)).equal(toWei("19"));
+    const [profit, penalty] = await treasuryVaultVenus.getProfit();
+    expect(profit).equal(toWei("0"));
+    expect(penalty).to.closeTo(
+      toWei("0.00000000017165300").toString(),
+      toWei("0.00000000009000000").toString()
+    );
+  });
+
+  it("should be able to get Profit after call deposit to mint vToken", async () => {
+    await init();
+
+    const [, treasury, someone] = await ethers.getSigners();
+
+    await busd
+      .connect(treasury)
+      .approve(treasuryVaultVenus.address, toWei("20"));
+
+    await treasuryVaultVenus.connect(treasury).deposit(toWei("1"));
+
+    await fastForwardBlock(28800 * 2);
+
+    // ** SOMEONE execute Mint to update exchangeRateMantissa
+    await mintBUSD(someone.address, "1");
+    await busd.connect(someone).approve(ADDRESSES.vBUSD, toWei("1"));
+    await vBUSD.connect(someone).mint(toWei("1"));
+
+    expect(await busd.balanceOf(treasury.address)).equal(toWei("19"));
+    const [profit, penalty] = await treasuryVaultVenus.getProfit();
+    expect(profit).to.closeTo(
+      toWei("0.000107103727200807").toString(),
+      toWei("0.0000009").toString()
+    );
+    expect(penalty).equal(toWei("0"));
   });
 
   it("should be able to call getUnclaimedIncentiveRewardsBalance", async () => {

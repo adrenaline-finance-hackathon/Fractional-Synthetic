@@ -1,30 +1,24 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
-const {
-  deployContract,
-  deployProxy,
-  toWei,
-  toPercent,
-  fromWei,
-} = require("../utils");
+const { deployContract, deployProxy, toWei, toPercent } = require("../utils");
 
 const MINTER = ethers.utils.id("MINTER");
 const PAUSER = ethers.utils.id("PAUSER");
 const MAINTAINER = ethers.utils.id("MAINTAINER");
 
 let owner, minter, feeCollector, pauser, maintainer, result;
-let kusd,
+let synth,
   doppleX,
   usdc,
   collateralReserve,
-  kusdPool,
+  syntheticPool,
   usdcOracle,
   doppleXPair,
   doppleXOracle,
-  kusdOracle;
+  synthOracle;
 
-describe("KUSDPool", () => {
+describe("SyntheticPool", () => {
   beforeEach(async () => {
     [owner, minter, feeCollector, pauser, maintainer] =
       await ethers.getSigners();
@@ -37,16 +31,16 @@ describe("KUSDPool", () => {
 
       expect(await collateralReserve.globalCollateralRatio()).to.eq("0");
       expect(await collateralReserve.getSharePrice()).to.eq(toWei("0.5"));
-      expect(await kusdPool.getCollateralPrice()).to.eq(toWei("1"));
-      expect(await kusdPool.getSynthPrice()).to.eq(toWei("1"));
+      expect(await syntheticPool.getCollateralPrice()).to.eq(toWei("1"));
+      expect(await syntheticPool.getSynthPrice()).to.eq(toWei("1"));
 
       const _doppleXAmount = toWei("2");
       const _synthOutMin = 0;
-      await kusdPool
+      await syntheticPool
         .connect(minter)
         .mintAlgorithmicSynth(_doppleXAmount, _synthOutMin);
 
-      result = await kusd.balanceOf(minter.address);
+      result = await synth.balanceOf(minter.address);
       expect(result).to.equals(toWei("1"));
     });
 
@@ -58,18 +52,18 @@ describe("KUSDPool", () => {
         toWei(toPercent("50"))
       );
       expect(await collateralReserve.getSharePrice()).to.eq(toWei("0.5"));
-      expect(await kusdPool.getCollateralPrice()).to.eq(toWei("1"));
-      expect(await kusdPool.getSynthPrice()).to.eq(toWei("1"));
+      expect(await syntheticPool.getCollateralPrice()).to.eq(toWei("1"));
+      expect(await syntheticPool.getSynthPrice()).to.eq(toWei("1"));
 
       const _collateralAmount = toWei("0.5");
       const _doppleXAmount = toWei("1");
       const _synthOutMin = 0;
 
-      await kusdPool
+      await syntheticPool
         .connect(minter)
         .mintFractionalSynth(_collateralAmount, _doppleXAmount, _synthOutMin);
 
-      result = await kusd.balanceOf(minter.address);
+      result = await synth.balanceOf(minter.address);
       expect(result).to.equals(toWei("1"));
     });
 
@@ -81,17 +75,17 @@ describe("KUSDPool", () => {
         toWei(toPercent("100"))
       );
       expect(await collateralReserve.getSharePrice()).to.eq(toWei("0.5"));
-      expect(await kusdPool.getCollateralPrice()).to.eq(toWei("1"));
-      expect(await kusdPool.getSynthPrice()).to.eq(toWei("1"));
+      expect(await syntheticPool.getCollateralPrice()).to.eq(toWei("1"));
+      expect(await syntheticPool.getSynthPrice()).to.eq(toWei("1"));
 
       const _collateralAmount = toWei("1");
       const _synthOutMin = 0;
 
-      await kusdPool
+      await syntheticPool
         .connect(minter)
         .mint1t1Synth(_collateralAmount, _synthOutMin);
 
-      result = await kusd.balanceOf(minter.address);
+      result = await synth.balanceOf(minter.address);
       expect(result).to.equals(toWei("1"));
     });
   });
@@ -105,14 +99,11 @@ describe("KUSDPool", () => {
       const _synthAmount = toWei("1");
       const _shareOutMin = 0;
       const before = await doppleX.balanceOf(minter.address);
-      const ecr = await collateralReserve.getECR();
-      console.log("TCR", fromWei(tcr));
-      console.log("ECR", fromWei(ecr));
-      await kusdPool
+      await syntheticPool
         .connect(minter)
         .redeemAlgorithmicSynth(_synthAmount, _shareOutMin);
 
-      result = await kusd.balanceOf(minter.address);
+      result = await synth.balanceOf(minter.address);
       expect(result).to.equals(toWei("99"));
 
       result = await doppleX.balanceOf(minter.address);
@@ -122,54 +113,19 @@ describe("KUSDPool", () => {
     it("can redeem by `redeemFractionalSynth` ratio 50%  with no slippage", async () => {
       const tcr = toWei(toPercent("50"));
       await setupContract(tcr);
+      await mintSynth("0.5", tcr);
 
-      // mint 1 KUSD with tcr 50%
-      await mintSynth("1", tcr);
-      // KUSD price = 100
-      // DOPX price = 0.5
-      // USDC price = 1
-      // ====
-      // use DOPX = 0.5*100/0.5 = 100 DOPX
-      // use USDC = 0.5*100/1 = 50 USDC
+      const _collateralAmount = toWei("0.5");
+      const _doppleXAmount = toWei("1");
+      const _synthOutMin = 0;
 
-      const _synthAmount = toWei("1");
-      const _shareOutMin = toWei("1");
-      const _minCollateralAmountOut = 0;
-
-      const kusdPrice = await kusdOracle.consult(kusd.address, toWei("1"));
-      const dopxPrice = await doppleXOracle.consult(
-        doppleX.address,
-        toWei("1")
-      );
-      const usdcPrice = await usdcOracle.consult(usdc.address, toWei("1"));
-      console.log("kusdPrice", fromWei(kusdPrice));
-      console.log("dopxPrice", fromWei(dopxPrice));
-      console.log("usdcPrice", fromWei(usdcPrice));
-      const ecr = await collateralReserve.getECR();
-      console.log("TCR", fromWei(tcr));
-      console.log("ECR", fromWei(ecr));
-      const beforeKUSD = await kusd.balanceOf(minter.address);
-      const beforeDOPX = await doppleX.balanceOf(minter.address);
-      const beforeUSDC = await usdc.balanceOf(minter.address);
-
-      expect(ecr).to.equals(toWei("0.005"));
-      await kusdPool
+      const before = await synth.balanceOf(minter.address);
+      await syntheticPool
         .connect(minter)
-        .redeemFractionalSynth(
-          _synthAmount,
-          _shareOutMin,
-          _minCollateralAmountOut
-        );
+        .mintFractionalSynth(_collateralAmount, _doppleXAmount, _synthOutMin);
 
-      // redeem 1 kusd
-      // receive dopx = 100*(1-0.005)/0.5/100 = 1.99
-      // receive usdc = 100*0.005/1/100 = 0.005
-      const afterKUSD = await kusd.balanceOf(minter.address);
-      const afterDOPX = await doppleX.balanceOf(minter.address);
-      const afterUSDC = await usdc.balanceOf(minter.address);
-      expect(afterKUSD).to.equals(beforeKUSD.sub(toWei("1")));
-      expect(afterDOPX).to.equals(beforeDOPX.add(toWei("1.99")));
-      expect(afterUSDC).to.equals(beforeUSDC.add(toWei("0.005")));
+      result = await synth.balanceOf(minter.address);
+      expect(result).to.equals(toWei("1").add(before));
     });
 
     it("can redeem `redeem1t1Synth` 100% ratio  with no slippage", async () => {
@@ -177,18 +133,15 @@ describe("KUSDPool", () => {
       await setupContract(tcr);
       await mintSynth("1", tcr);
 
-      const ecr = await collateralReserve.getECR();
-      console.log("TCR", fromWei(tcr));
-      console.log("ECR", fromWei(ecr));
       const _synthAmount = toWei("1");
       const _minCollateralAmountOut = 0;
       result = await usdc.balanceOf(minter.address);
       const before = await usdc.balanceOf(minter.address);
-      await kusdPool
+      await syntheticPool
         .connect(minter)
         .redeem1t1Synth(_synthAmount, _minCollateralAmountOut);
 
-      result = await kusd.balanceOf(minter.address);
+      result = await synth.balanceOf(minter.address);
       expect(result).to.equals(toWei("99"));
 
       result = await usdc.balanceOf(minter.address);
@@ -196,13 +149,91 @@ describe("KUSDPool", () => {
     });
   });
 
+  describe("# Redeeming with several numbers", () => {
+    describe("## Function `redeem1t1Synth`", () => {
+      describe("### TCR 90% ECR 100%", () => {
+        it("should be able to redeem with synthPrice 1$, collat 1$");
+        it("should be able to redeem with synthPrice 100$ , collat 50$");
+        it("should be able to redeem with fee 0.8%");
+
+        it("should throw error if someone reCollateral before redeem");
+      });
+
+      describe("### TCR 100% ECR 100%", () => {
+        it("should be able to redeem with synthPrice 1$, collat 1$");
+        it("should be able to redeem with synthPrice 100$ , collat 50$");
+        it("should be able to redeem with fee 0.8%");
+      });
+
+      describe("### TCR 0% ECR 100%", () => {
+        it("should be able to redeem with synthPrice 1$, collat 1$");
+        it("should be able to redeem with synthPrice 100$ , collat 50$");
+        it("should be able to redeem with fee 0.8%");
+      });
+
+      describe("### TCR 0% ECR 80%", () => {
+        it("should be revertedWith `Collateral ratio must be == 1`");
+      });
+
+      describe("### TCR 0% ECR 0%", () => {
+        it("should be revertedWith `Collateral ratio must be == 1`");
+      });
+
+      describe("### TCR 0% ECR 200%", () => {
+        it("should be revertedWith `Collateral ratio must be == 1`");
+      });
+    });
+
+    describe("## Function `redeemAlgorithmicSynth`", () => {
+      describe("### TCR 90% ECR 0%", () => {
+        it("should be revertedWith `Collateral ratio must be 0`");
+      });
+
+      describe("### TCR 90% ECR 2000%", () => {
+        it("should be revertedWith `Collateral ratio must be 0`");
+      });
+
+      describe("### TCR 100% ECR 0%", () => {
+        it("should be able to redeem with synthPrice 1$, collat 1$");
+        it("should be able to redeem with synthPrice 100$ , collat 50$");
+        it("should be able to redeem with Synth price increase");
+        it("should be able to redeem with Synth price decrease");
+        it("should be able to redeem with fee 0.8%");
+      });
+    });
+
+    describe("## Function `redeemFractionalSynth`", () => {
+      describe("### TCR 90% ECR 0%", () => {
+        it(
+          "should be revertedWith `Collateral ratio needs to be lower than 100% or higher than 0%`"
+        );
+      });
+
+      describe("### TCR 90% ECR 2000%", () => {
+        it("should be able to redeem with synthPrice 1$, collat 1$");
+        it("should be able to redeem with synthPrice 100$ , collat 50$");
+        it("should be able to redeem with Synth price increase");
+        it("should be able to redeem with Synth price decrease");
+        it("should be able to redeem with fee 0.8%");
+      });
+
+      describe("### TCR 100% ECR 50%", () => {
+        it("should be able to redeem with synthPrice 1$, collat 1$");
+        it("should be able to redeem with synthPrice 100$ , collat 50$");
+        it("should be able to redeem with Synth price increase");
+        it("should be able to redeem with Synth price decrease");
+        it("should be able to redeem with fee 0.8%");
+      });
+    });
+  });
+
   describe("# `getCollateralPrice`", () => {
     it("should get collateral price to 1 USD", async () => {
-      const tcr = toWei(toPercent("100"));
+      const tcr = toWei(toPercent("1"));
       await setupContract(tcr);
       const price = toWei("1");
       await usdcOracle.mock(price);
-      expect(await kusdPool.getCollateralPrice()).to.eq(toWei("1"));
+      expect(await syntheticPool.getCollateralPrice()).to.eq(toWei("1"));
     });
 
     it("should get collateral price to 0.98 USD", async () => {
@@ -210,7 +241,7 @@ describe("KUSDPool", () => {
       await setupContract(tcr);
       const price = toWei("0.98");
       await usdcOracle.mock(price);
-      expect(await kusdPool.getCollateralPrice()).to.eq(toWei("0.98"));
+      expect(await syntheticPool.getCollateralPrice()).to.eq(toWei("0.98"));
     });
 
     it("should get collateral price to 1.02 USD", async () => {
@@ -218,7 +249,7 @@ describe("KUSDPool", () => {
       await setupContract(tcr);
       const price = toWei("1.02");
       await usdcOracle.mock(price);
-      expect(await kusdPool.getCollateralPrice()).to.eq(toWei("1.02"));
+      expect(await syntheticPool.getCollateralPrice()).to.eq(toWei("1.02"));
     });
 
     it("should get collateral price to 0 USD", async () => {
@@ -226,15 +257,15 @@ describe("KUSDPool", () => {
       await setupContract(tcr);
       const price = toWei("0");
       await usdcOracle.mock(price);
-      expect(await kusdPool.getCollateralPrice()).to.eq(toWei("0"));
+      expect(await syntheticPool.getCollateralPrice()).to.eq(toWei("0"));
     });
   });
 
   describe("# `getSynthPrice`", () => {
     it("should get synth price to only 1 USD", async () => {
-      const tcr = toWei(toPercent("100"));
+      const tcr = toWei(toPercent("1"));
       await setupContract(tcr);
-      expect(await kusdPool.getSynthPrice()).to.eq(toWei("1"));
+      expect(await syntheticPool.getSynthPrice()).to.eq(toWei("1"));
     });
   });
 
@@ -242,24 +273,24 @@ describe("KUSDPool", () => {
     it("should not toggle minting if sender has not PAUSER role", async () => {
       const tcr = toWei(toPercent("100"));
       await setupContract(tcr);
-      await expect(kusdPool.connect(minter).toggleMinting()).to.be.revertedWith(
-        "Caller is not a pauser"
-      );
+      await expect(
+        syntheticPool.connect(minter).toggleMinting()
+      ).to.be.revertedWith("Caller is not a pauser");
     });
 
     it("should toggle minting when current state is unpaused", async () => {
       const tcr = toWei(toPercent("100"));
       await setupContract(tcr);
-      await kusdPool.connect(pauser).toggleMinting();
-      expect(await kusdPool.mintPaused()).to.be.true;
+      await syntheticPool.connect(pauser).toggleMinting();
+      expect(await syntheticPool.mintPaused()).to.be.true;
     });
 
     it("should toggle minting when current state is paused", async () => {
       const tcr = toWei(toPercent("100"));
       await setupContract(tcr);
-      await kusdPool.connect(pauser).toggleMinting();
-      await kusdPool.connect(pauser).toggleMinting();
-      expect(await kusdPool.mintPaused()).to.be.false;
+      await syntheticPool.connect(pauser).toggleMinting();
+      await syntheticPool.connect(pauser).toggleMinting();
+      expect(await syntheticPool.mintPaused()).to.be.false;
     });
   });
 
@@ -267,24 +298,24 @@ describe("KUSDPool", () => {
     it("should not toggle redeeming if sender has not PAUSER role", async () => {
       const tcr = toWei(toPercent("100"));
       await setupContract(tcr);
-      await expect(kusdPool.connect(minter).toggleMinting()).to.be.revertedWith(
-        "Caller is not a pauser"
-      );
+      await expect(
+        syntheticPool.connect(minter).toggleMinting()
+      ).to.be.revertedWith("Caller is not a pauser");
     });
 
     it("should toggle redeeming when current state is unpaused", async () => {
       const tcr = toWei(toPercent("100"));
       await setupContract(tcr);
-      await kusdPool.connect(pauser).toggleRedeeming();
-      expect(await kusdPool.redeemPaused()).to.be.true;
+      await syntheticPool.connect(pauser).toggleRedeeming();
+      expect(await syntheticPool.redeemPaused()).to.be.true;
     });
 
     it("should toggle redeeming when current state is paused", async () => {
       const tcr = toWei(toPercent("100"));
       await setupContract(tcr);
-      await kusdPool.connect(pauser).toggleRedeeming();
-      await kusdPool.connect(pauser).toggleRedeeming();
-      expect(await kusdPool.redeemPaused()).to.be.false;
+      await syntheticPool.connect(pauser).toggleRedeeming();
+      await syntheticPool.connect(pauser).toggleRedeeming();
+      expect(await syntheticPool.redeemPaused()).to.be.false;
     });
   });
 
@@ -293,7 +324,7 @@ describe("KUSDPool", () => {
       const tcr = toWei(toPercent("100"));
       await setupContract(tcr);
       await expect(
-        kusdPool.connect(minter).setActionDelay(100)
+        syntheticPool.connect(minter).setActionDelay(100)
       ).to.be.revertedWith("Caller is not a maintainer");
     });
 
@@ -301,15 +332,15 @@ describe("KUSDPool", () => {
       const tcr = toWei(toPercent("100"));
       await setupContract(tcr);
       await expect(
-        kusdPool.connect(maintainer).setActionDelay(0)
+        syntheticPool.connect(maintainer).setActionDelay(0)
       ).to.be.revertedWith("Delay should not be zero");
     });
 
     it("should set action delay to 100", async () => {
       const tcr = toWei(toPercent("100"));
       await setupContract(tcr);
-      await kusdPool.connect(maintainer).setActionDelay(100);
-      expect(await kusdPool.actionDelay()).to.eq(100);
+      await syntheticPool.connect(maintainer).setActionDelay(100);
+      expect(await syntheticPool.actionDelay()).to.eq(100);
     });
   });
 
@@ -318,34 +349,34 @@ describe("KUSDPool", () => {
       const tcr = toWei(toPercent("100"));
       await setupContract(tcr);
       await expect(
-        kusdPool.connect(minter).setMintingFee(toWei(toPercent(0.1)))
+        syntheticPool.connect(minter).setMintingFee(toWei(toPercent(0.1)))
       ).to.be.revertedWith("Caller is not a maintainer");
     });
 
     it("should not set minting fee if new fee more than MAX_FEE", async () => {
       const tcr = toWei(toPercent("100"));
       await setupContract(tcr);
-      const MAX_FEE = await kusdPool.MAX_FEE();
+      const MAX_FEE = await syntheticPool.MAX_FEE();
       await expect(
-        kusdPool.connect(maintainer).setMintingFee(MAX_FEE.add(toWei("1")))
+        syntheticPool.connect(maintainer).setMintingFee(MAX_FEE.add(toWei("1")))
       ).to.be.revertedWith("The new fee is too high");
     });
 
     it("should set minting fee to 0.05%", async () => {
       const tcr = toWei(toPercent("100"));
       await setupContract(tcr);
-      await kusdPool
+      await syntheticPool
         .connect(maintainer)
         .setMintingFee(toWei(toPercent("0.05")));
-      expect(await kusdPool.mintingFee()).to.eq(toWei("0.0005"));
+      expect(await syntheticPool.mintingFee()).to.eq(toWei("0.0005"));
     });
 
     it("should set minting fee to MAX_FEE", async () => {
       const tcr = toWei(toPercent("100"));
       await setupContract(tcr);
-      const MAX_FEE = await kusdPool.MAX_FEE();
-      await kusdPool.connect(maintainer).setMintingFee(MAX_FEE);
-      expect(await kusdPool.mintingFee()).to.eq(MAX_FEE);
+      const MAX_FEE = await syntheticPool.MAX_FEE();
+      await syntheticPool.connect(maintainer).setMintingFee(MAX_FEE);
+      expect(await syntheticPool.mintingFee()).to.eq(MAX_FEE);
     });
 
     it("can mint by `FractionalSynth` ratio 50%  with fee", async () => {
@@ -356,19 +387,19 @@ describe("KUSDPool", () => {
         toWei(toPercent("50"))
       );
       expect(await collateralReserve.getSharePrice()).to.eq(toWei("0.5"));
-      expect(await kusdPool.getCollateralPrice()).to.eq(toWei("1"));
-      expect(await kusdPool.getSynthPrice()).to.eq(toWei("1"));
-      expect(await kusdPool.setMintingFee(toWei("0.01")));
+      expect(await syntheticPool.getCollateralPrice()).to.eq(toWei("1"));
+      expect(await syntheticPool.getSynthPrice()).to.eq(toWei("1"));
+      expect(await syntheticPool.setMintingFee(toWei("0.01")));
 
       const _collateralAmount = toWei("0.5");
       const _doppleXAmount = toWei("1");
       const _synthOutMin = 0;
 
-      await kusdPool
+      await syntheticPool
         .connect(minter)
         .mintFractionalSynth(_collateralAmount, _doppleXAmount, _synthOutMin);
 
-      result = await kusd.balanceOf(minter.address);
+      result = await synth.balanceOf(minter.address);
       expect(result).to.equals(toWei("0.99"));
     });
   });
@@ -378,88 +409,94 @@ describe("KUSDPool", () => {
       const tcr = toWei(toPercent("100"));
       await setupContract(tcr);
       await expect(
-        kusdPool.connect(minter).setRedemptionFee(toWei(toPercent(0.1)))
+        syntheticPool.connect(minter).setRedemptionFee(toWei(toPercent(0.1)))
       ).to.be.revertedWith("Caller is not a maintainer");
     });
 
     it("should not set redemption fee if new fee more than MAX_FEE", async () => {
       const tcr = toWei(toPercent("100"));
       await setupContract(tcr);
-      const MAX_FEE = await kusdPool.MAX_FEE();
+      const MAX_FEE = await syntheticPool.MAX_FEE();
       await expect(
-        kusdPool.connect(maintainer).setRedemptionFee(MAX_FEE.add(toWei("1")))
+        syntheticPool
+          .connect(maintainer)
+          .setRedemptionFee(MAX_FEE.add(toWei("1")))
       ).to.be.revertedWith("The new fee is too high");
     });
 
     it("should set redemption fee to 0.05%", async () => {
       const tcr = toWei(toPercent("100"));
       await setupContract(tcr);
-      await kusdPool
+      await syntheticPool
         .connect(maintainer)
         .setRedemptionFee(toWei(toPercent("0.05")));
-      expect(await kusdPool.redemptionFee()).to.eq(toWei("0.0005"));
+      expect(await syntheticPool.redemptionFee()).to.eq(toWei("0.0005"));
     });
 
     it("should set redemption fee to MAX_FEE", async () => {
       const tcr = toWei(toPercent("100"));
       await setupContract(tcr);
-      const MAX_FEE = await kusdPool.MAX_FEE();
-      await kusdPool.connect(maintainer).setRedemptionFee(MAX_FEE);
-      expect(await kusdPool.redemptionFee()).to.eq(MAX_FEE);
+      const MAX_FEE = await syntheticPool.MAX_FEE();
+      await syntheticPool.connect(maintainer).setRedemptionFee(MAX_FEE);
+      expect(await syntheticPool.redemptionFee()).to.eq(MAX_FEE);
     });
   });
 
-  describe.skip("# `withdrawFee`", () => {
+  describe("# `withdrawFee`", () => {
     it("should not withdraw fee if sender has not MAINTAINER role", async () => {
       const tcr = toWei(toPercent("100"));
       await setupContract(tcr);
-      await expect(kusdPool.connect(minter).withdrawFee()).to.be.revertedWith(
-        "Caller is not a maintainer"
-      );
+      await expect(
+        syntheticPool.connect(minter).withdrawFee()
+      ).to.be.revertedWith("Caller is not a maintainer");
     });
 
     it("should withdraw fee if share amount is zero", async () => {
       const tcr = toWei(toPercent("100"));
       await setupContract(tcr);
-      expect(await doppleX.balanceOf(kusdPool.address)).to.eq(0);
-      await kusdPool.connect(maintainer).withdrawFee();
+      expect(await doppleX.balanceOf(syntheticPool.address)).to.eq(0);
+      await syntheticPool.connect(maintainer).withdrawFee();
     });
 
     it("should withdraw fee if collateral amount is zero", async () => {
       const tcr = toWei(toPercent("100"));
       await setupContract(tcr);
-      expect(await usdc.balanceOf(kusdPool.address)).to.eq(0);
-      await kusdPool.connect(maintainer).withdrawFee();
+      expect(await usdc.balanceOf(syntheticPool.address)).to.eq(0);
+      await syntheticPool.connect(maintainer).withdrawFee();
     });
 
     it("should withdraw fee if share amount is 100 and callateral is zero", async () => {
       const tcr = toWei(toPercent("100"));
       await setupContract(tcr);
-      await doppleX.transfer(kusdPool.address, toWei("100"));
-      expect(await doppleX.balanceOf(kusdPool.address)).to.eq(toWei("100"));
-      expect(await usdc.balanceOf(kusdPool.address)).to.eq(0);
-      await kusdPool.connect(maintainer).withdrawFee();
+      await doppleX.transfer(syntheticPool.address, toWei("100"));
+      expect(await doppleX.balanceOf(syntheticPool.address)).to.eq(
+        toWei("100")
+      );
+      expect(await usdc.balanceOf(syntheticPool.address)).to.eq(0);
+      await syntheticPool.connect(maintainer).withdrawFee();
       expect(await doppleX.balanceOf(maintainer.address)).to.eq(toWei("100"));
     });
 
     it("should withdraw fee if share amount is zero and collateral amount is 100", async () => {
       const tcr = toWei(toPercent("100"));
       await setupContract(tcr);
-      await usdc.transfer(kusdPool.address, toWei("100"));
-      expect(await doppleX.balanceOf(kusdPool.address)).to.eq(0);
-      expect(await usdc.balanceOf(kusdPool.address)).to.eq(toWei("100"));
-      await kusdPool.connect(maintainer).withdrawFee();
+      await usdc.transfer(syntheticPool.address, toWei("100"));
+      expect(await doppleX.balanceOf(syntheticPool.address)).to.eq(0);
+      expect(await usdc.balanceOf(syntheticPool.address)).to.eq(toWei("100"));
+      await syntheticPool.connect(maintainer).withdrawFee();
       expect(await usdc.balanceOf(maintainer.address)).to.eq(toWei("100"));
     });
 
     it("should withdraw fee if share amount is 100 and collateral amount is 100", async () => {
       const tcr = toWei(toPercent("100"));
       await setupContract(tcr);
-      await doppleX.transfer(kusdPool.address, toWei("100"));
-      await usdc.transfer(kusdPool.address, toWei("100"));
-      expect(await doppleX.balanceOf(kusdPool.address)).to.eq(toWei("100"));
-      expect(await usdc.balanceOf(kusdPool.address)).to.eq(toWei("100"));
-      await kusdPool.connect(maintainer).withdrawFee();
+      await doppleX.transfer(syntheticPool.address, toWei("100"));
+      await usdc.transfer(syntheticPool.address, toWei("100"));
+      expect(await doppleX.balanceOf(syntheticPool.address)).to.eq(
+        toWei("100")
+      );
+      expect(await usdc.balanceOf(syntheticPool.address)).to.eq(toWei("100"));
+      await syntheticPool.connect(maintainer).withdrawFee();
       expect(await doppleX.balanceOf(maintainer.address)).to.eq(toWei("100"));
       expect(await usdc.balanceOf(maintainer.address)).to.eq(toWei("100"));
     });
@@ -467,14 +504,14 @@ describe("KUSDPool", () => {
 });
 
 const setupContract = async (tcr) => {
-  // deploy kusd oracle
-  kusdOracle = await deployContract("MockPairOracle", [toWei("100")]);
+  // deploy synth oracle
+  synthOracle = await deployContract("MockPairOracle", [toWei("1")]);
 
-  // deploy kusd
-  const _name = "Kelly USD";
-  const _symbol = "KUSD";
-  [kusd] = await deployProxy("KUSD", [owner.address, _name, _symbol]);
-  await kusd.setOracle(kusdOracle.address);
+  // deploy synth
+  const _name = "kelly APPLE Stock";
+  const _symbol = "kAAPL";
+  [synth] = await deployProxy("Synth", [owner.address, _name, _symbol]);
+  await synth.setOracle(synthOracle.address);
 
   // deploy TWX
   [doppleX] = await deployProxy("DoppleX", [owner.address]);
@@ -503,7 +540,7 @@ const setupContract = async (tcr) => {
 
   await doppleXOracle.update();
 
-  [collateralReserve] = await deployProxy("StableCollateralReserve", [
+  [collateralReserve] = await deployProxy("CollateralReserve", [
     owner.address,
     ethers.constants.AddressZero,
     doppleX.address,
@@ -511,13 +548,11 @@ const setupContract = async (tcr) => {
     feeCollector.address,
   ]);
 
-  [pidController] = await deployProxy("StablePIDController", [
+  [pidController] = await deployProxy("PIDController", [
     collateralReserve.address,
     doppleX.address,
     reserveTracker.address,
     doppleXOracle.address,
-    kusd.address,
-    kusdOracle.address,
   ]);
 
   // ! set the pid controller address to collateral reserve
@@ -538,10 +573,11 @@ const setupContract = async (tcr) => {
     usdcOracle.address
   );
 
-  [kusdPool] = await deployProxy("KUSDPool", [
+  [syntheticPool] = await deployProxy("SyntheticPool", [
     collateralReserve.address,
     usdc.address,
-    kusd.address,
+    synth.address,
+    synthOracle.address,
     doppleX.address,
     owner.address,
   ]);
@@ -549,18 +585,18 @@ const setupContract = async (tcr) => {
   await collateralReserve.grantRole(PAUSER, owner.address);
   await collateralReserve.toggleRecollateralize();
   await collateralReserve.toggleBuyBack();
-  await collateralReserve.addPool(kusdPool.address);
-  await collateralReserve.addSynth(kusd.address);
+  await collateralReserve.addPool(syntheticPool.address);
+  await collateralReserve.addSynth(synth.address);
   await collateralReserve.setGlobalCollateralRatio(tcr);
   await collateralReserve.globalCollateralRatio();
   await doppleX.grantRole(MINTER, owner.address);
-  await kusd.grantRole(MINTER, kusdPool.address);
-  await doppleX.grantRole(MINTER, kusdPool.address);
-  await kusdPool.grantRole(PAUSER, pauser.address);
-  await kusdPool.grantRole(MAINTAINER, maintainer.address);
-  await kusdPool.grantRole(PAUSER, owner.address);
-  await kusdPool.toggleMinting();
-  await kusdPool.toggleRedeeming();
+  await synth.grantRole(MINTER, syntheticPool.address);
+  await doppleX.grantRole(MINTER, syntheticPool.address);
+  await syntheticPool.grantRole(PAUSER, pauser.address);
+  await syntheticPool.grantRole(MAINTAINER, maintainer.address);
+  await syntheticPool.grantRole(PAUSER, owner.address);
+  await syntheticPool.toggleMinting();
+  await syntheticPool.toggleRedeeming();
   await doppleX.mint(minter.address, toWei("1000000"));
   await doppleX.mint(owner.address, toWei("1000000"));
   await approveAll();
@@ -571,14 +607,14 @@ const mintSynth = async (amount, tcr) => {
     const _doppleXAmount = toWei("200");
     const _synthOutMin = 0;
 
-    await kusdPool
+    await syntheticPool
       .connect(minter)
       .mintAlgorithmicSynth(_doppleXAmount, _synthOutMin);
   } else if (tcr.gte(toWei("1"))) {
     const _collateralAmount = toWei((100 * parseInt(amount)).toString());
     const _synthOutMin = 0;
 
-    await kusdPool
+    await syntheticPool
       .connect(minter)
       .mint1t1Synth(_collateralAmount, _synthOutMin);
   } else {
@@ -586,7 +622,7 @@ const mintSynth = async (amount, tcr) => {
     const _doppleXAmount = toWei("100");
     const _synthOutMin = 0;
 
-    await kusdPool
+    await syntheticPool
       .connect(minter)
       .mintFractionalSynth(_collateralAmount, _doppleXAmount, _synthOutMin);
   }
@@ -595,11 +631,11 @@ const mintSynth = async (amount, tcr) => {
 const approveAll = async () => {
   await doppleX
     .connect(minter)
-    .approve(kusdPool.address, ethers.constants.MaxUint256);
-  await kusd
+    .approve(syntheticPool.address, ethers.constants.MaxUint256);
+  await synth
     .connect(minter)
-    .approve(kusdPool.address, ethers.constants.MaxUint256);
+    .approve(syntheticPool.address, ethers.constants.MaxUint256);
   await usdc
     .connect(minter)
-    .approve(kusdPool.address, ethers.constants.MaxUint256);
+    .approve(syntheticPool.address, ethers.constants.MaxUint256);
 };

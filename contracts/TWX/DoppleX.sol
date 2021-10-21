@@ -21,4 +21,46 @@ contract DoppleX is ERC20BurnableUpgradeable, AccessControlUpgradeable {
         require(hasRole(MINTER_ROLE, msg.sender), "Caller is not a minter");
         _mint(to, _amount);
     }
+
+    function transfer(address recipient, uint256 amount)
+        public
+        virtual
+        override
+        returns (bool)
+    {
+        require(amount <= transferLimit, "Transfer exceed limit");
+        _transfer(_msgSender(), recipient, amount);
+        return true;
+    }
+
+    function transferFrom(
+        address sender,
+        address recipient,
+        uint256 amount
+    ) public virtual override returns (bool) {
+        require(amount <= transferLimit, "Transfer exceed limit");
+        _transfer(sender, recipient, amount);
+        _approve(
+            sender,
+            _msgSender(),
+            _allowances[sender][_msgSender()].sub(
+                amount,
+                "ERC20: transfer amount exceeds allowance"
+            )
+        );
+        return true;
+    }
+
+    function setTransferLimit(uint256 _amount) external {
+        require(
+            hasRole(DEFAULT_ADMIN_ROLE, msg.sender),
+            "Caller is not a default admin"
+        );
+        transferLimit = _amount;
+        emit SetTransferLimit(_amount);
+    }
+
+    uint256 public transferLimit;
+
+    event SetTransferLimit(uint256 _amount);
 }

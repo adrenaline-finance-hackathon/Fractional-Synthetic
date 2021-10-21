@@ -20,10 +20,6 @@ contract ChainlinkOracleWrapper is Operator {
     AggregatorV3Interface public priceFeed;
     string public pairName;
 
-    uint256 public mockPrice;
-    uint256 constant PRICE_PRECISION = 1e18;
-    uint256 public PERIOD = 60; // 1 hour TWAP (time-weighted average price)
-
     constructor(AggregatorV3Interface _priceFeed, string memory _pairName)
         public
     {

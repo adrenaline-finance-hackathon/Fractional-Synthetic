@@ -1,4 +1,5 @@
 const { ethers, network } = require("hardhat");
+const { BigNumber } = require("ethers");
 
 const mineBlock = () => ethers.provider.send("evm_mine", []);
 
@@ -132,7 +133,8 @@ const deployProxy = async (
   return [proxy, contract];
 };
 
-const toPercent = (n) => (+n / 100).toString();
+const toPercent = (n) =>
+  fromWei(BigNumber.from(toWei(n)).div("100")).toString();
 
 module.exports = {
   mineBlock,

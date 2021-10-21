@@ -58,6 +58,14 @@ contract KUSDPool is AccessControlUpgradeable {
         _;
     }
 
+    modifier onlyUserOrWhitelistedContracts() {
+        require(
+            msg.sender == tx.origin || whitelistContracts[msg.sender],
+            "Allow non-contract only"
+        );
+        _;
+    }
+
     function initialize(
         address _collateralReserve,
         address _collateralToken,
@@ -98,6 +106,7 @@ contract KUSDPool is AccessControlUpgradeable {
     function mint1t1Synth(uint256 colAmount, uint256 synthOutMin)
         external
         notMintPaused
+        onlyUserOrWhitelistedContracts
     {
         require(block.number >= lastAction[msg.sender].add(actionDelay));
         require(
@@ -132,6 +141,7 @@ contract KUSDPool is AccessControlUpgradeable {
     function mintAlgorithmicSynth(uint256 shareAmount, uint256 synthOutMin)
         external
         notMintPaused
+        onlyUserOrWhitelistedContracts
     {
         require(block.number >= lastAction[msg.sender].add(actionDelay));
         require(share.balanceOf(msg.sender) >= shareAmount, "No enough Share");
@@ -164,7 +174,7 @@ contract KUSDPool is AccessControlUpgradeable {
         uint256 _collateralAmount,
         uint256 _shareAmount,
         uint256 _synthOutMin
-    ) external notMintPaused {
+    ) external notMintPaused onlyUserOrWhitelistedContracts {
         require(block.number >= lastAction[msg.sender].add(actionDelay));
 
         uint256 _sharePrice = collateralReserve.getSharePrice();
@@ -220,7 +230,7 @@ contract KUSDPool is AccessControlUpgradeable {
     function redeem1t1Synth(
         uint256 _synthAmount,
         uint256 _minCollateralAmountOut
-    ) external notRedeemPaused {
+    ) external notRedeemPaused onlyUserOrWhitelistedContracts {
         require(block.number >= lastAction[msg.sender].add(actionDelay));
         require(
             collateralReserve.globalCollateralRatio() == COLLATERAL_RATIO_MAX,
@@ -270,6 +280,7 @@ contract KUSDPool is AccessControlUpgradeable {
     function redeemAlgorithmicSynth(uint256 _synthAmount, uint256 _shareOutMin)
         external
         notRedeemPaused
+        onlyUserOrWhitelistedContracts
     {
         require(block.number >= lastAction[msg.sender].add(actionDelay));
         require(synth.balanceOf(msg.sender) >= _synthAmount, "No enough synth");
@@ -307,11 +318,12 @@ contract KUSDPool is AccessControlUpgradeable {
         uint256 _synthAmount,
         uint256 _shareOutMin,
         uint256 _minCollateralAmountOut
-    ) external notRedeemPaused {
+    ) external notRedeemPaused onlyUserOrWhitelistedContracts {
         require(block.number >= lastAction[msg.sender].add(actionDelay));
         require(synth.balanceOf(msg.sender) >= _synthAmount, "No enough synth");
 
         uint256 _tcr = collateralReserve.globalCollateralRatio();
+        uint256 _ecr = collateralReserve.getECR();
 
         require(
             _tcr < COLLATERAL_RATIO_MAX && _tcr > 0,
@@ -333,10 +345,10 @@ contract KUSDPool is AccessControlUpgradeable {
         uint256 _fee = _synthAmount.sub(_synthAmountPostFee);
 
         uint256 _shareReceived = _synthDollarValue
-            .mul(COLLATERAL_RATIO_PRECISION.sub(_tcr))
+            .mul(COLLATERAL_RATIO_PRECISION.sub(_ecr))
             .div(_sharePrice);
 
-        uint256 _collateralReceived = _synthDollarValue.mul(_tcr).div(
+        uint256 _collateralReceived = _synthDollarValue.mul(_ecr).div(
             _collateralPrice
         );
 
@@ -419,6 +431,19 @@ contract KUSDPool is AccessControlUpgradeable {
         collateralReserve = StableCollateralReserve(_collateralReserve);
     }
 
+    function addWhitelistContract(address _contract) external {
+        require(hasRole(MAINTAINER, msg.sender), "Caller is not a maintainer");
+        require(_contract != address(0), "Invalid address");
+        require(!whitelistContracts[_contract], "Contract was whitelisted");
+        whitelistContracts[_contract] = true;
+    }
+
+    function removeWhitelistContract(address _contract) external {
+        require(hasRole(MAINTAINER, msg.sender), "Caller is not a maintainer");
+        require(whitelistContracts[_contract], "Contract was not whitelisted");
+        delete whitelistContracts[_contract];
+    }
+
     /* ========== EVENTS ========== */
 
     event MintingToggled(bool toggled);
@@ -428,4 +453,6 @@ contract KUSDPool is AccessControlUpgradeable {
     event SetRedemptionFee(uint256 newFee);
 
     uint256[49] private __gap;
+
+    mapping(address => bool) public whitelistContracts;
 }

@@ -187,6 +187,7 @@ contract CollateralReserve is AccessControlUpgradeable {
     ) external {
         require(buyBackPaused == false, "Buyback is paused");
         require(share.balanceOf(msg.sender) >= _shareAmount, "No enough Share");
+        require(isBalancerWhitelist[msg.sender], "Not whitelisted");
 
         uint256 excessCollateralBalance = excessCollateralBalance(
             _collateralToken
@@ -345,6 +346,7 @@ contract CollateralReserve is AccessControlUpgradeable {
         uint256 _shareOutMin
     ) external {
         require(recollateralizePaused == false, "Recollateralize is paused");
+        require(isBalancerWhitelist[msg.sender], "Not whitelisted");
 
         uint256 _collateralPrice = ITWAP(oracleOf[_collateralToken]).consult(
             _collateralToken,
@@ -496,6 +498,32 @@ contract CollateralReserve is AccessControlUpgradeable {
         require(_oracle != address(0), "Zero address detected");
 
         oracleOf[_token] = _oracle;
+    }
+
+    function addBalancerWhitelist(address _addr) external {
+        require(hasRole(MAINTAINER, msg.sender), "Sender is not a maintainer");
+        require(_addr != address(0), "Zero address detected");
+
+        require(isBalancerWhitelist[_addr] == false, "Address already exists");
+        isBalancerWhitelist[_addr] = true;
+        balancerWhitelist.push(_addr);
+    }
+
+    function removeBalancerWhitelist(address _addr) public {
+        require(hasRole(MAINTAINER, msg.sender), "Sender is not a maintainer");
+        require(_addr != address(0), "Zero address detected");
+        require(isBalancerWhitelist[_addr] == true, "Address nonexistant");
+
+        // Delete from the mapping
+        delete isBalancerWhitelist[_addr];
+
+        // 'Delete' from the array by setting the address to 0x0
+        for (uint256 i = 0; i < balancerWhitelist.length; i++) {
+            if (balancerWhitelist[i] == _addr) {
+                balancerWhitelist[i] = address(0); // This will leave a null in the array and keep the indices the same
+                break;
+            }
+        }
     }
 
     function addPool(address poolAddress) external {
@@ -773,4 +801,7 @@ contract CollateralReserve is AccessControlUpgradeable {
     event BuybackToggled(bool toggled);
 
     uint256[49] private __gap;
+
+    address[] public balancerWhitelist;
+    mapping(address => bool) public isBalancerWhitelist;
 }

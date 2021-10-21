@@ -2,6 +2,8 @@
 
 pragma solidity 0.6.12;
 
+import "@openzeppelin/contracts/access/Ownable.sol";
+
 import "../Uniswap/Interfaces/IUniswapV2Factory.sol";
 import "../Uniswap/Interfaces/IUniswapV2Pair.sol";
 import "../Math/FixedPoint.sol";
@@ -11,7 +13,7 @@ import "../Uniswap/UniswapV2Library.sol";
 
 // fixed window oracle that recomputes the average price for the entire period once every period
 // note that the price average is only guaranteed to be over at least 1 period, but may be over a longer period
-contract UniswapPairOracle {
+contract UniswapPairOracle is Ownable {
     using FixedPoint for *;
 
     uint256 public constant PERIOD = 600;

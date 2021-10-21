@@ -60,18 +60,24 @@ contract SyntheticPool is AccessControlUpgradeable {
         _;
     }
 
+    modifier onlyUserOrWhitelistedContracts() {
+        require(
+            msg.sender == tx.origin || whitelistContracts[msg.sender],
+            "Allow non-contract only"
+        );
+        _;
+    }
+
     function initialize(
         address _collateralReserve,
         address _collateralToken,
         address _synth,
-        address _synthTWAP,
         address _share,
         address _owner
     ) public initializer {
         collateralReserve = CollateralReserve(_collateralReserve);
         collateralToken = IERC20(_collateralToken);
         synth = ICustomToken(_synth);
-        synthTWAP = ITWAP(_synthTWAP);
         share = ICustomToken(_share);
 
         __AccessControl_init();
@@ -95,13 +101,14 @@ contract SyntheticPool is AccessControlUpgradeable {
     }
 
     function getSynthPrice() public view returns (uint256) {
-        return synthTWAP.consult(address(synth), 1e18);
+        return synth.getSynthPrice();
     }
 
     // We separate out the 1t1, fractional and algorithmic minting functions for gas efficiency
     function mint1t1Synth(uint256 colAmount, uint256 synthOutMin)
         external
         notMintPaused
+        onlyUserOrWhitelistedContracts
     {
         require(block.number >= lastAction[msg.sender].add(actionDelay));
         require(
@@ -136,6 +143,7 @@ contract SyntheticPool is AccessControlUpgradeable {
     function mintAlgorithmicSynth(uint256 shareAmount, uint256 synthOutMin)
         external
         notMintPaused
+        onlyUserOrWhitelistedContracts
     {
         require(block.number >= lastAction[msg.sender].add(actionDelay));
         require(share.balanceOf(msg.sender) >= shareAmount, "No enough Share");
@@ -168,7 +176,7 @@ contract SyntheticPool is AccessControlUpgradeable {
         uint256 _collateralAmount,
         uint256 _shareAmount,
         uint256 _synthOutMin
-    ) external notMintPaused {
+    ) external notMintPaused onlyUserOrWhitelistedContracts {
         require(block.number >= lastAction[msg.sender].add(actionDelay));
 
         uint256 _sharePrice = collateralReserve.getSharePrice();
@@ -224,7 +232,7 @@ contract SyntheticPool is AccessControlUpgradeable {
     function redeem1t1Synth(
         uint256 _synthAmount,
         uint256 _minCollateralAmountOut
-    ) external notRedeemPaused {
+    ) external notRedeemPaused onlyUserOrWhitelistedContracts {
         require(block.number >= lastAction[msg.sender].add(actionDelay));
         require(
             collateralReserve.getECR() == COLLATERAL_RATIO_MAX,
@@ -274,6 +282,7 @@ contract SyntheticPool is AccessControlUpgradeable {
     function redeemAlgorithmicSynth(uint256 _synthAmount, uint256 _shareOutMin)
         external
         notRedeemPaused
+        onlyUserOrWhitelistedContracts
     {
         require(block.number >= lastAction[msg.sender].add(actionDelay));
         require(synth.balanceOf(msg.sender) >= _synthAmount, "No enough synth");
@@ -311,7 +320,7 @@ contract SyntheticPool is AccessControlUpgradeable {
         uint256 _synthAmount,
         uint256 _shareOutMin,
         uint256 _minCollateralAmountOut
-    ) external notRedeemPaused {
+    ) external notRedeemPaused onlyUserOrWhitelistedContracts {
         require(block.number >= lastAction[msg.sender].add(actionDelay));
         require(synth.balanceOf(msg.sender) >= _synthAmount, "No enough synth");
 
@@ -423,9 +432,17 @@ contract SyntheticPool is AccessControlUpgradeable {
         collateralReserve = CollateralReserve(_collateralReserve);
     }
 
-    function setSynthTWAP(address _synthTWAP) external {
+    function addWhitelistContract(address _contract) external {
         require(hasRole(MAINTAINER, msg.sender), "Caller is not a maintainer");
-        synthTWAP = ITWAP(_synthTWAP);
+        require(_contract != address(0), "Invalid address");
+        require(!whitelistContracts[_contract], "Contract was whitelisted");
+        whitelistContracts[_contract] = true;
+    }
+
+    function removeWhitelistContract(address _contract) external {
+        require(hasRole(MAINTAINER, msg.sender), "Caller is not a maintainer");
+        require(whitelistContracts[_contract], "Contract was not whitelisted");
+        delete whitelistContracts[_contract];
     }
 
     /* ========== EVENTS ========== */
@@ -437,4 +454,6 @@ contract SyntheticPool is AccessControlUpgradeable {
     event SetRedemptionFee(uint256 newFee);
 
     uint256[49] private __gap;
+
+    mapping(address => bool) public whitelistContracts;
 }

@@ -22,6 +22,7 @@ contract StablePoolOracle is Ownable {
     uint8 public immutable fromTokenIndex;
     uint8 public immutable toTokenIndex;
     bool public enableTwap;
+    uint256 public quoteAmount = 1e18;
 
     constructor(
         address _swapContract,
@@ -45,8 +46,10 @@ contract StablePoolOracle is Ownable {
         uint256 priceWithDeductedFee = swap.calculateSwap(
             fromTokenIndex,
             toTokenIndex,
-            1e18
+            quoteAmount
         );
+
+        priceWithDeductedFee.mul(DENOMINATOR).div(quoteAmount);
 
         uint256 _swapFee = fee(); // fee in 1e18 base
 
@@ -63,6 +66,11 @@ contract StablePoolOracle is Ownable {
         _fee = _fee.mul(DENOMINATOR / FEE_DENOMINATOR);
     }
 
+    function setQuoteAmount(uint256 _newAmount) external onlyOwner {
+        require(_newAmount.mod(10e18) == 0, "Invalid amount");
+        quoteAmount = _newAmount;
+    }
+
     function update() external {
         uint32 timeElapsed = uint32(block.timestamp) - blockTimestampLast; // overflow is desired
         require(timeElapsed >= PERIOD, "StablePoolOracle: PERIOD_NOT_ELAPSED");
@@ -72,8 +80,10 @@ contract StablePoolOracle is Ownable {
         uint256 priceWithDeductedFee = swap.calculateSwap(
             fromTokenIndex,
             toTokenIndex,
-            1e18
+            quoteAmount
         );
+
+        priceWithDeductedFee.mul(DENOMINATOR).div(quoteAmount);
 
         // priceWithoutFee = priceWithDeductedFee / (1-_swapFee)
         uint256 _priceWithoutFee = priceWithDeductedFee.mul(DENOMINATOR).div(
