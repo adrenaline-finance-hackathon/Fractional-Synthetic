@@ -92,7 +92,6 @@ contract MasterChef is OwnableUpgradeable {
     }
 
     // Add a new lp to the pool. Can only be called by the owner.
-    // XXX DO NOT add the same LP token more than once. Rewards will be messed up if you do.
     function add(
         uint256 _allocPoint,
         IERC20 _lpToken,
@@ -101,6 +100,7 @@ contract MasterChef is OwnableUpgradeable {
         if (_withUpdate) {
             massUpdatePools();
         }
+        require(!isAdded[_lpToken], "already added");
         uint256 lastRewardBlock = block.number > startBlock
             ? block.number
             : startBlock;
@@ -113,6 +113,7 @@ contract MasterChef is OwnableUpgradeable {
                 accDopplePerShare: 0
             })
         );
+        isAdded[_lpToken] = true;
     }
 
     // Update the given pool's DOPPLE allocation point. Can only be called by the owner.
@@ -285,4 +286,5 @@ contract MasterChef is OwnableUpgradeable {
     }
 
     uint256[49] private __gap;
+    mapping(IERC20 => bool) private isAdded;
 }

@@ -33,7 +33,7 @@ contract ConvertTwin is Ownable {
         require(_balance > 0, "Nothing to withdraw");
         require(_amount <= _balance, "Exceed balance");
 
-        twx.transfer(msg.sender, _amount);
+        twx.safeTransfer(msg.sender, _amount);
     }
 
     function convert(uint256 _amount) external {
@@ -50,7 +50,7 @@ contract ConvertTwin is Ownable {
         );
 
         twin.safeTransferFrom(msg.sender, burnTo, _amount);
-        twx.transfer(msg.sender, _amount);
+        twx.safeTransfer(msg.sender, _amount);
 
         emit Convert(msg.sender, _amount);
     }

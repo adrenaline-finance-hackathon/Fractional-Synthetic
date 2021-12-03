@@ -235,8 +235,8 @@ contract SyntheticPool is AccessControlUpgradeable {
     ) external notRedeemPaused onlyUserOrWhitelistedContracts {
         require(block.number >= lastAction[msg.sender].add(actionDelay));
         require(
-            collateralReserve.getECR() == COLLATERAL_RATIO_MAX,
-            "Collateral ratio must be == 1"
+            collateralReserve.getECR() >= COLLATERAL_RATIO_MAX,
+            "Collateral ratio must be >= 1"
         );
         require(synth.balanceOf(msg.sender) >= _synthAmount, "No enough synth");
 
@@ -309,9 +309,12 @@ contract SyntheticPool is AccessControlUpgradeable {
 
         require(_shareOutMin <= _shareReceived, "Slippage limit reached");
 
+        uint256 _fee = _shareAmount.sub(_shareReceived);
+
         // Move all external functions to the end
         synth.burnFrom(msg.sender, _synthAmount);
         share.mint(msg.sender, _shareReceived);
+        synth.mint(address(this), _fee);
     }
 
     // Will fail if fully collateralized or algorithmic

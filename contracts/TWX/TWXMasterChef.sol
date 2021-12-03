@@ -69,6 +69,11 @@ contract MasterChef is OwnableUpgradeable {
     );
     event SetTWXPerBlock(uint256 _newtwxPerBlock);
 
+    modifier validatePoolByPid(uint256 pid) {
+        require(pid < poolInfo.length, "Pool does not exist.");
+        _;
+    }
+
     function initialize(
         ITWX _twx,
         address _devaddr,
@@ -92,7 +97,6 @@ contract MasterChef is OwnableUpgradeable {
     }
 
     // Add a new lp to the pool. Can only be called by the owner.
-    // XXX DO NOT add the same LP token more than once. Rewards will be messed up if you do.
     function add(
         uint256 _allocPoint,
         IERC20 _lpToken,
@@ -101,6 +105,7 @@ contract MasterChef is OwnableUpgradeable {
         if (_withUpdate) {
             massUpdatePools();
         }
+        require(!isAdded[_lpToken], "already added");
         uint256 lastRewardBlock = block.number > startBlock
             ? block.number
             : startBlock;
@@ -113,6 +118,7 @@ contract MasterChef is OwnableUpgradeable {
                 accTWXPerShare: 0
             })
         );
+        isAdded[_lpToken] = true;
     }
 
     // Update the given pool's TWX allocation point. Can only be called by the owner.
@@ -120,7 +126,7 @@ contract MasterChef is OwnableUpgradeable {
         uint256 _pid,
         uint256 _allocPoint,
         bool _withUpdate
-    ) public onlyOwner {
+    ) public onlyOwner validatePoolByPid(_pid) {
         if (_withUpdate) {
             massUpdatePools();
         }
@@ -156,6 +162,7 @@ contract MasterChef is OwnableUpgradeable {
     function pendingTWX(uint256 _pid, address _user)
         external
         view
+        validatePoolByPid(_pid)
         returns (uint256)
     {
         PoolInfo storage pool = poolInfo[_pid];
@@ -187,7 +194,7 @@ contract MasterChef is OwnableUpgradeable {
     }
 
     // Update reward variables of the given pool to be up-to-date.
-    function updatePool(uint256 _pid) public {
+    function updatePool(uint256 _pid) public validatePoolByPid(_pid) {
         PoolInfo storage pool = poolInfo[_pid];
         if (block.number <= pool.lastRewardBlock) {
             return;
@@ -198,21 +205,28 @@ contract MasterChef is OwnableUpgradeable {
             return;
         }
         uint256 multiplier = getMultiplier(pool.lastRewardBlock, block.number);
-        uint256 twxReward = multiplier
+        uint256 totalReward = multiplier
             .mul(twxPerBlock)
             .mul(pool.allocPoint)
             .div(totalAllocPoint);
-        uint256 devReward = (twxReward.mul(43).div(100));
-        twx.mint(devaddr, devReward);
-        twx.mint(address(this), twxReward);
+
+        uint256 devReward = totalReward.mul(30).div(100); // 30% to dev
+        uint256 twxReward = totalReward.sub(devReward);
+
+        twx.mint(devaddr, devReward); // mint dev reward
+        twx.mint(address(this), twxReward); // 70% to pool
+
         pool.accTWXPerShare = pool.accTWXPerShare.add(
             twxReward.mul(1e12).div(lpSupply)
         );
-        pool.lastRewardBlock = block.number;
+        pool.lastRewardBlock = block.number; // update last reward block
     }
 
     // Deposit LP tokens to MasterChef for TWX allocation.
-    function deposit(uint256 _pid, uint256 _amount) public {
+    function deposit(uint256 _pid, uint256 _amount)
+        public
+        validatePoolByPid(_pid)
+    {
         PoolInfo storage pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][msg.sender];
         updatePool(_pid);
@@ -235,7 +249,10 @@ contract MasterChef is OwnableUpgradeable {
     }
 
     // Withdraw LP tokens from MasterChef.
-    function withdraw(uint256 _pid, uint256 _amount) public {
+    function withdraw(uint256 _pid, uint256 _amount)
+        public
+        validatePoolByPid(_pid)
+    {
         PoolInfo storage pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][msg.sender];
         require(user.amount >= _amount, "withdraw: not good");
@@ -251,22 +268,23 @@ contract MasterChef is OwnableUpgradeable {
     }
 
     // Withdraw without caring about rewards. EMERGENCY ONLY.
-    function emergencyWithdraw(uint256 _pid) public {
+    function emergencyWithdraw(uint256 _pid) public validatePoolByPid(_pid) {
         PoolInfo storage pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][msg.sender];
-        pool.lpToken.safeTransfer(address(msg.sender), user.amount);
-        emit EmergencyWithdraw(msg.sender, _pid, user.amount);
+        uint256 amount = user.amount;
         user.amount = 0;
         user.rewardDebt = 0;
+        pool.lpToken.safeTransfer(address(msg.sender), amount);
+        emit EmergencyWithdraw(msg.sender, _pid, amount);
     }
 
     // Safe twx transfer function, just in case if rounding error causes pool to not have enough TWXs.
     function safeTWXTransfer(address _to, uint256 _amount) internal {
         uint256 twxBal = twx.balanceOf(address(this));
         if (_amount > twxBal) {
-            twx.transfer(_to, twxBal);
+            require(twx.transfer(_to, twxBal));
         } else {
-            twx.transfer(_to, _amount);
+            require(twx.transfer(_to, _amount));
         }
     }
 
@@ -282,4 +300,5 @@ contract MasterChef is OwnableUpgradeable {
     }
 
     uint256[49] private __gap;
+    mapping(IERC20 => bool) private isAdded;
 }

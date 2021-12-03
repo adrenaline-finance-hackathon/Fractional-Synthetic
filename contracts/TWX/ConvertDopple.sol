@@ -37,7 +37,7 @@ contract ConvertDopple is Ownable {
         require(_balance > 0, "Nothing to withdraw");
         require(_amount <= _balance, "Exceed balance");
 
-        _doppleX.transfer(msg.sender, _amount);
+        _doppleX.safeTransfer(msg.sender, _amount);
     }
 
     function convert(uint256 _amount) external {
@@ -57,7 +57,7 @@ contract ConvertDopple is Ownable {
         );
 
         _dopple.safeTransferFrom(msg.sender, burnTo, _amount);
-        _doppleX.transfer(msg.sender, _amount);
+        _doppleX.safeTransfer(msg.sender, _amount);
 
         emit Convert(msg.sender, _amount);
     }

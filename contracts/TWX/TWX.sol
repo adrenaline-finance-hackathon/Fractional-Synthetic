@@ -43,7 +43,7 @@ contract TWX is ERC20BurnableUpgradeable, AccessControlUpgradeable {
         _approve(
             sender,
             _msgSender(),
-            _allowances[sender][_msgSender()].sub(
+            allowance(sender, _msgSender()).sub(
                 amount,
                 "ERC20: transfer amount exceeds allowance"
             )

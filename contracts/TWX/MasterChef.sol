@@ -69,6 +69,11 @@ contract MasterChef is OwnableUpgradeable {
     );
     event SetDoppleXPerBlock(uint256 _newDoppleXPerBlock);
 
+    modifier validatePoolByPid(uint256 pid) {
+        require(pid < poolInfo.length, "Pool does not exist.");
+        _;
+    }
+
     function initialize(
         IDOPX _dopple,
         address _devaddr,
@@ -120,7 +125,7 @@ contract MasterChef is OwnableUpgradeable {
         uint256 _pid,
         uint256 _allocPoint,
         bool _withUpdate
-    ) public onlyOwner {
+    ) public onlyOwner validatePoolByPid(_pid) {
         if (_withUpdate) {
             massUpdatePools();
         }
@@ -156,6 +161,7 @@ contract MasterChef is OwnableUpgradeable {
     function pendingDoppleX(uint256 _pid, address _user)
         external
         view
+        validatePoolByPid(_pid)
         returns (uint256)
     {
         PoolInfo storage pool = poolInfo[_pid];
@@ -188,7 +194,7 @@ contract MasterChef is OwnableUpgradeable {
     }
 
     // Update reward variables of the given pool to be up-to-date.
-    function updatePool(uint256 _pid) public {
+    function updatePool(uint256 _pid) public validatePoolByPid(_pid) {
         PoolInfo storage pool = poolInfo[_pid];
         if (block.number <= pool.lastRewardBlock) {
             return;
@@ -199,12 +205,16 @@ contract MasterChef is OwnableUpgradeable {
             return;
         }
         uint256 multiplier = getMultiplier(pool.lastRewardBlock, block.number);
-        uint256 doppleReward = multiplier
+        uint256 totalReward = multiplier
             .mul(doppleXPerBlock)
             .mul(pool.allocPoint)
             .div(totalAllocPoint);
-        doppleX.mint(devaddr, doppleReward.div(10));
+
+        uint256 devReward = doppleReward.div(10);
+        uint256 doppleReward = totalReward.sub(devReward);
+        doppleX.mint(devaddr, devReward);
         doppleX.mint(address(this), doppleReward);
+
         pool.accDopplePerShare = pool.accDopplePerShare.add(
             doppleReward.mul(1e12).div(lpSupply)
         );
@@ -212,7 +222,10 @@ contract MasterChef is OwnableUpgradeable {
     }
 
     // Deposit LP tokens to MasterChef for DOPPLE allocation.
-    function deposit(uint256 _pid, uint256 _amount) public {
+    function deposit(uint256 _pid, uint256 _amount)
+        public
+        validatePoolByPid(_pid)
+    {
         PoolInfo storage pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][msg.sender];
         updatePool(_pid);
@@ -235,7 +248,10 @@ contract MasterChef is OwnableUpgradeable {
     }
 
     // Withdraw LP tokens from MasterChef.
-    function withdraw(uint256 _pid, uint256 _amount) public {
+    function withdraw(uint256 _pid, uint256 _amount)
+        public
+        validatePoolByPid(_pid)
+    {
         PoolInfo storage pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][msg.sender];
         require(user.amount >= _amount, "withdraw: not good");
@@ -251,22 +267,23 @@ contract MasterChef is OwnableUpgradeable {
     }
 
     // Withdraw without caring about rewards. EMERGENCY ONLY.
-    function emergencyWithdraw(uint256 _pid) public {
+    function emergencyWithdraw(uint256 _pid) public validatePoolByPid(_pid) {
         PoolInfo storage pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][msg.sender];
-        pool.lpToken.safeTransfer(address(msg.sender), user.amount);
-        emit EmergencyWithdraw(msg.sender, _pid, user.amount);
+        uint256 amount = user.amount;
         user.amount = 0;
         user.rewardDebt = 0;
+        pool.lpToken.safeTransfer(address(msg.sender), amount);
+        emit EmergencyWithdraw(msg.sender, _pid, amount);
     }
 
     // Safe dopple transfer function, just in case if rounding error causes pool to not have enough DOPPLEs.
     function safeDoppleTransfer(address _to, uint256 _amount) internal {
         uint256 doppleBal = doppleX.balanceOf(address(this));
         if (_amount > doppleBal) {
-            doppleX.transfer(_to, doppleBal);
+            require(doppleX.transfer(_to, doppleBal));
         } else {
-            doppleX.transfer(_to, _amount);
+            require(doppleX.transfer(_to, _amount));
         }
     }
 

@@ -233,8 +233,8 @@ contract KUSDPool is AccessControlUpgradeable {
     ) external notRedeemPaused onlyUserOrWhitelistedContracts {
         require(block.number >= lastAction[msg.sender].add(actionDelay));
         require(
-            collateralReserve.globalCollateralRatio() == COLLATERAL_RATIO_MAX,
-            "Collateral ratio must be == 1"
+            collateralReserve.globalCollateralRatio() >= COLLATERAL_RATIO_MAX,
+            "Collateral ratio must be >= 1"
         );
         require(synth.balanceOf(msg.sender) >= _synthAmount, "No enough synth");
 
@@ -307,9 +307,12 @@ contract KUSDPool is AccessControlUpgradeable {
 
         require(_shareOutMin <= _shareReceived, "Slippage limit reached");
 
+        uint256 _fee = _shareAmount.sub(_shareReceived);
+
         // Move all external functions to the end
         synth.burnFrom(msg.sender, _synthAmount);
         share.mint(msg.sender, _shareReceived);
+        synth.mint(address(this), _fee);
     }
 
     // Will fail if fully collateralized or algorithmic
@@ -418,12 +421,12 @@ contract KUSDPool is AccessControlUpgradeable {
 
     function withdrawFee() external {
         require(hasRole(MAINTAINER, msg.sender), "Caller is not a maintainer");
-        collateralToken.transfer(
+        collateralToken.safeTransfer(
             msg.sender,
             collateralToken.balanceOf(address(this))
         );
-        synth.transfer(msg.sender, synth.balanceOf(address(this)));
-        share.transfer(msg.sender, share.balanceOf(address(this)));
+        require(synth.transfer(msg.sender, synth.balanceOf(address(this))));
+        require(share.transfer(msg.sender, share.balanceOf(address(this))));
     }
 
     function setCollateralReserve(address _collateralReserve) external {

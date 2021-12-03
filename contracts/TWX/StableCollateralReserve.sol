@@ -58,7 +58,7 @@ contract StableCollateralReserve is AccessControlUpgradeable {
     // Enable and disable pool
     mapping(address => bool) enabledPool;
 
-    // Global collateral target, set by growth ratio
+    // Global collateral target, set by Ratio Setter or Maintainer
     uint256 public globalCollateralRatio;
 
     // Growth ratio calculation and ratio setter (stepUp, stepDown)
@@ -77,7 +77,7 @@ contract StableCollateralReserve is AccessControlUpgradeable {
     uint256 private constant FEE_PRECISION = 1e18;
 
     uint256 public bonusRate;
-    uint256 public ratioDelta; // Should initially be 25e15 or 0.25%
+    uint256 public ratioDelta; // Should initially be 25e14 or 0.25%
     uint256 public buybackFee;
     uint256 public recollatFee;
     bool public recollateralizePaused;
@@ -101,7 +101,6 @@ contract StableCollateralReserve is AccessControlUpgradeable {
         bonusRate = 75e14; // 0.75%
         refreshCooldown = 0;
         globalCollateralRatio = 1e18; // 100%
-        pidController = _pidController;
         feeCollector = _feeCollector;
 
         share = ICustomToken(_share);
@@ -170,7 +169,23 @@ contract StableCollateralReserve is AccessControlUpgradeable {
         view
         returns (uint256)
     {
-        return IERC20(_collateralToken).balanceOf(address(this)); //TODO + vault[col]
+        uint256 collateralBalance = IERC20(_collateralToken).balanceOf(
+            address(this)
+        );
+
+        for (uint256 i = 0; i < vaults.length; i++) {
+            if (vaults[i] != address(0)) {
+                ITreasuryVault vault = ITreasuryVault(vaults[i]);
+
+                uint256 _totalBalance = vault.vaultBalance();
+
+                address _asset = vault.asset();
+                if (_asset == _collateralToken) {
+                    collateralBalance = collateralBalance.add(_totalBalance);
+                }
+            }
+        }
+        return collateralBalance;
     }
 
     // Returns the price of the pool collateral in USD
