@@ -1,5 +1,10 @@
 const { expect } = require("chai");
-const { ethers } = require("hardhat");
+const {
+  ethers: {
+    utils: { parseEther, formatEther },
+    constants: { MaxUint256 },
+  },
+} = require("hardhat");
 const { BigNumber, utils } = require("ethers");
 
 // CONSTANTS
@@ -92,6 +97,7 @@ describe("TWX MasterChef hardhat_reset", function () {
     lpToken3 = await Mock.deploy(initialSupply);
     await lpToken3.deployed();
     await lpToken3.transfer(user.address, initialSupply);
+    await twx.setTransferLimit(MaxUint256);
   });
 
   it("Should deployed successfully", async function () {
@@ -304,7 +310,7 @@ describe("TWX MasterChef hardhat_reset", function () {
     expect(lpBalance).to.equals(ethers.utils.parseEther("1000"));
 
     let sdopBalance = await twx.balanceOf(user.address);
-    expect(sdopBalance).to.equals(ethers.utils.parseEther("582"));
+    expect(sdopBalance).to.equals(ethers.utils.parseEther("407.4"));
   });
 
   it("Should throw error if unstake more than staked", async function () {
@@ -415,11 +421,11 @@ describe("TWX MasterChef hardhat_reset", function () {
     expect(lpBalance).to.equals(ethers.utils.parseEther("1000"));
 
     let sdopBalance = await twx.balanceOf(user.address);
-    expect(sdopBalance).to.equals(ethers.utils.parseEther("582"));
+    expect(sdopBalance).to.equals(ethers.utils.parseEther("407.4"));
 
     // expect dev address balance inceased
     devBalance = await twx.balanceOf(devaddr.address);
-    expect(devBalance).to.equals(ethers.utils.parseEther("58.2")); // dev receive 10% of reward
+    expect(devBalance).to.equals(ethers.utils.parseEther("174.6")); // dev receive 10% of reward
   });
 
   it("Should set pool allocation of pool[0]", async function () {
@@ -792,11 +798,11 @@ describe("TWX MasterChef hardhat_reset", function () {
     expect(lpBalance).to.equals(ethers.utils.parseEther("1000"));
 
     let sdopBalance = await twx.balanceOf(user.address);
-    expect(sdopBalance).to.equals(ethers.utils.parseEther("588"));
+    expect(sdopBalance).to.equals(ethers.utils.parseEther("411.6"));
 
     // expect dev address balance inceased
     devBalance = await twx.balanceOf(anotherDev.address);
-    expect(devBalance).to.equals(ethers.utils.parseEther("58.8")); // dev receive 10% of reward
+    expect(devBalance).to.equals(ethers.utils.parseEther("176.4")); // dev receive 10% of reward
   });
 
   it("Should add pool[0] pool[1] pool[2]", async function () {

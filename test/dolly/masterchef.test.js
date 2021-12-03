@@ -82,6 +82,8 @@ describe("Dolly MasterChef hardhat_reset", function () {
     await lpToken3.deployed();
     await lpToken3.transfer(user.address, toWei("1000"));
     await lpToken3.transfer(user2.address, toWei("1000"));
+
+    await doppleX.setTransferLimit(MAX_UINT_256);
   });
 
   it("Should deployed successfully", async function () {
@@ -283,7 +285,7 @@ describe("Dolly MasterChef hardhat_reset", function () {
     expect(lpBalance).to.equals(toWei("1000"));
 
     let sdopBalance = await doppleX.balanceOf(user.address);
-    expect(sdopBalance).to.equals(toWei("582"));
+    expect(sdopBalance).to.equals(toWei("523.8"));
   });
 
   it("Should throw error if unstake more than staked", async function () {
@@ -390,7 +392,7 @@ describe("Dolly MasterChef hardhat_reset", function () {
     expect(lpBalance).to.equals(toWei("1000"));
 
     let sdopBalance = await doppleX.balanceOf(user.address);
-    expect(sdopBalance).to.equals(toWei("582"));
+    expect(sdopBalance).to.equals(toWei("523.8"));
 
     // expect dev address balance inceased
     devBalance = await doppleX.balanceOf(devaddr.address);
@@ -749,7 +751,7 @@ describe("Dolly MasterChef hardhat_reset", function () {
     expect(lpBalance).to.equals(toWei("1000"));
 
     let sdopBalance = await doppleX.balanceOf(user.address);
-    expect(sdopBalance).to.equals(toWei("588"));
+    expect(sdopBalance).to.equals(toWei("529.2"));
 
     // expect dev address balance inceased
     devBalance = await doppleX.balanceOf(anotherDev.address);
@@ -1009,10 +1011,10 @@ describe("Dolly MasterChef hardhat_reset", function () {
     lpBalance2 = await lpToken2.balanceOf(user2.address);
     expect(lpBalance2).to.equals(toWei("1000"));
     let sdopBalance = await doppleX.balanceOf(user.address);
-    expect(sdopBalance).to.equals(toWei("291")); //97*3
+    expect(sdopBalance).to.equals(toWei("261.9"));
 
     let sdopBalance2 = await doppleX.balanceOf(user2.address);
-    expect(sdopBalance2).to.equals(toWei("294")); //98*3
+    expect(sdopBalance2).to.equals(toWei("264.6"));
 
     // expect dev address balance increased
     devBalance = await doppleX.balanceOf(devaddr.address);
@@ -1106,7 +1108,7 @@ describe("Dolly MasterChef hardhat_reset", function () {
     expect(lpBalance2).to.equals(toWei("1000"));
 
     let sdopBalance = await doppleX.balanceOf(user.address);
-    expect(sdopBalance).to.equals(toWei("585")); //97*3 + 98*3
+    expect(sdopBalance).to.equals(toWei("526.5"));
 
     // expect dev address balance increased
     devBalance = await doppleX.balanceOf(devaddr.address);
@@ -1195,10 +1197,10 @@ describe("Dolly MasterChef hardhat_reset", function () {
     lpBalance2 = await lpToken1.balanceOf(user2.address);
     expect(lpBalance2).to.equals(toWei("1000"));
     let sdopBalance = await doppleX.balanceOf(user.address);
-    expect(sdopBalance).to.equals(toWei("145.5")); //97*1.5
+    expect(sdopBalance).to.equals(toWei("130.95"));
 
     let sdopBalance2 = await doppleX.balanceOf(user2.address);
-    expect(sdopBalance2).to.equals(toWei("148.5")); //97*1.5 + 1*3
+    expect(sdopBalance2).to.equals(toWei("133.65"));
 
     // expect dev address balance increased
     devBalance = await doppleX.balanceOf(devaddr.address);
@@ -1390,7 +1392,7 @@ describe("Dolly MasterChef hardhat_reset", function () {
     expect(lpBalance).to.equals(toWei("1000"));
 
     let sdopBalance = await doppleX.balanceOf(user.address);
-    expect(sdopBalance).to.equals(toWei("588"));
+    expect(sdopBalance).to.equals(toWei("529.2"));
 
     // expect dev address balance inceased
     devBalance = await doppleX.balanceOf(anotherDev.address);
@@ -1746,7 +1748,7 @@ describe("Dolly MasterChef hardhat_reset", function () {
 
       expect(
         await masterChef.connect(user).pendingDoppleX(_pid, _user)
-      ).to.equals(toWei("592"));
+      ).to.equals(toWei("533.8"));
 
       await masterChef.connect(owner).setDoppleXPerBlock(toWei("3.5"));
       expect(await masterChef.doppleXPerBlock()).to.equals(toWei("3.5"));
@@ -1755,7 +1757,7 @@ describe("Dolly MasterChef hardhat_reset", function () {
 
       expect(
         await masterChef.connect(user).pendingDoppleX(_pid, _user)
-      ).to.equals(toWei("600"));
+      ).to.equals(toWei("540.7"));
     });
 
     it("should add pool same lp address and no problems", async () => {
@@ -1816,7 +1818,7 @@ describe("Dolly MasterChef hardhat_reset", function () {
 
       expect(
         await masterChef.connect(user).pendingDoppleX(_pid, _user)
-      ).to.equals(toWei("592"));
+      ).to.equals(toWei("533.8"));
 
       await masterChef.connect(owner).setDoppleXPerBlock(toWei("3.5"));
       expect(await masterChef.doppleXPerBlock()).to.equals(toWei("3.5"));
@@ -1825,7 +1827,7 @@ describe("Dolly MasterChef hardhat_reset", function () {
 
       expect(
         await masterChef.connect(user).pendingDoppleX(_pid, _user)
-      ).to.equals(toWei("600"));
+      ).to.equals(toWei("540.7"));
 
       // new code
       _allocPoint = 0;
@@ -1897,7 +1899,7 @@ describe("Dolly MasterChef hardhat_reset", function () {
 
       // ! can get pending reward from pool 0 (old pool)
       pendingDoppleX = await masterChef.connect(user).pendingDoppleX(0, _user);
-      expect(pendingDoppleX).to.eq(toWei("1499.5"));
+      expect(pendingDoppleX).to.eq(toWei("1367.4"));
 
       // ! can withdraw pool 0 with allocation point
       beforeBalance = await doppleX.balanceOf(user.address);

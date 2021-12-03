@@ -123,7 +123,6 @@ describe("Collateral Reserve", async () => {
       collateralReserve.address,
       usdc.address,
       synth.address,
-      synthOracle.address,
       dopx.address,
       owner.address,
     ]);
@@ -658,7 +657,7 @@ describe("Collateral Reserve", async () => {
 
           // * ECR 1000%
           await mockECR(toWei("1000"), toWei("900"));
-
+          await collateralReserve.addBalancerWhitelist(user1.address);
           await collateralReserve.setBuybackFee(toWei(toPercent("1")));
           await setPrice(usdcOracle, "1");
           await setPrice(dopxOracle, "0.1");
@@ -866,7 +865,7 @@ describe("Collateral Reserve", async () => {
             .approve(collateralReserve.address, ethers.constants.MaxUint256);
 
           await usdc.connect(owner).mint(user1.address, toWei("100000"));
-
+          await collateralReserve.addBalancerWhitelist(user1.address);
           await collateralReserve
             .connect(user1)
             .recollateralizeShare(usdc.address, toWei("20"), BIG_ZERO);
@@ -896,7 +895,7 @@ describe("Collateral Reserve", async () => {
             .approve(collateralReserve.address, ethers.constants.MaxUint256);
 
           await usdc.connect(owner).mint(user1.address, toWei("100000"));
-
+          await collateralReserve.addBalancerWhitelist(user1.address);
           await collateralReserve
             .connect(user1)
             .recollateralizeShare(usdc.address, toWei("10"), BIG_ZERO);
@@ -927,7 +926,7 @@ describe("Collateral Reserve", async () => {
 
           await dopx.connect(owner).grantRole(MINTER, minter.address);
           await dopx.connect(minter).mint(user1.address, toWei("100000"));
-
+          await collateralReserve.addBalancerWhitelist(user1.address);
           await collateralReserve
             .connect(user1)
             .buyBackShare(toWei("50"), BIG_ZERO, usdc.address);
@@ -958,7 +957,7 @@ describe("Collateral Reserve", async () => {
 
           await dopx.connect(owner).grantRole(MINTER, minter.address);
           await dopx.connect(minter).mint(user1.address, toWei("100000"));
-
+          await collateralReserve.addBalancerWhitelist(user1.address);
           await collateralReserve
             .connect(user1)
             .buyBackShare(toWei("40"), BIG_ZERO, usdc.address);
@@ -995,7 +994,7 @@ describe("Collateral Reserve", async () => {
             .approve(collateralReserve.address, ethers.constants.MaxUint256);
 
           await usdc.connect(owner).mint(user1.address, toWei("100000"));
-
+          await collateralReserve.addBalancerWhitelist(user1.address);
           await collateralReserve
             .connect(user1)
             .recollateralizeShare(usdc.address, toWei("10"), BIG_ZERO);
@@ -1025,7 +1024,7 @@ describe("Collateral Reserve", async () => {
             .approve(collateralReserve.address, ethers.constants.MaxUint256);
 
           await usdc.connect(owner).mint(user1.address, toWei("100000"));
-
+          await collateralReserve.addBalancerWhitelist(user1.address);
           await collateralReserve
             .connect(user1)
             .recollateralizeShare(usdc.address, toWei("20"), BIG_ZERO);
@@ -1056,7 +1055,7 @@ describe("Collateral Reserve", async () => {
 
           await dopx.connect(owner).grantRole(MINTER, minter.address);
           await dopx.connect(minter).mint(user1.address, toWei("100000"));
-
+          await collateralReserve.addBalancerWhitelist(user1.address);
           await collateralReserve
             .connect(user1)
             .buyBackShare(toWei("60"), BIG_ZERO, usdc.address);
@@ -1087,7 +1086,7 @@ describe("Collateral Reserve", async () => {
 
           await dopx.connect(owner).grantRole(MINTER, minter.address);
           await dopx.connect(minter).mint(user1.address, toWei("100000"));
-
+          await collateralReserve.addBalancerWhitelist(user1.address);
           await collateralReserve
             .connect(user1)
             .buyBackShare(toWei("40"), BIG_ZERO, usdc.address);
@@ -1186,6 +1185,7 @@ describe("Collateral Reserve", async () => {
       describe("### TCR < ECR", async () => {
         it("collateralNeeded should be ZERO , tcr= 20%, ecr =60%, gcv=200k, tgsv=1M", async () => {
           const [owner] = await ethers.getSigners();
+          await synth.setTokenCap(ethers.constants.MaxUint256);
 
           // * TCR = 20%
           await collateralReserve
@@ -1213,7 +1213,7 @@ describe("Collateral Reserve", async () => {
       describe("### TCR = ECR", async () => {
         it("collateralNeeded should be ZERO , tcr= 20%, ecr =20%, gcv=200k, tgsv=1M", async () => {
           const [owner] = await ethers.getSigners();
-
+          await synth.setTokenCap(ethers.constants.MaxUint256);
           // * TCR = 20%
           await collateralReserve
             .connect(owner)
@@ -1229,7 +1229,6 @@ describe("Collateral Reserve", async () => {
           expect(await collateralReserve.getECR()).to.eq(
             toWei(toPercent("20"))
           );
-
           // * collateralNeeded
           expect(
             await collateralReserve.recollateralizeAmount(usdc.address)
@@ -1256,6 +1255,7 @@ describe("Collateral Reserve", async () => {
         });
 
         it("collateralNeeded should be 1M if, tgsv = 1M, ecr = 0, gcv = 0, tcr = 100%", async () => {
+          await synth.setTokenCap(ethers.constants.MaxUint256);
           // * tgsv = 1M
           await mockTGSV(toWei("1000000"));
           expect(await collateralReserve.totalGlobalSynthValue()).to.eq(
@@ -1310,6 +1310,7 @@ describe("Collateral Reserve", async () => {
 
     it("should be revertedWith(`No excess collateral to buy back!`)", async () => {
       const [owner, pauser, minter, user1] = await ethers.getSigners();
+      await collateralReserve.addBalancerWhitelist(user1.address);
 
       expect(await dopx.balanceOf(user1.address)).to.eq(BIG_ZERO);
 
@@ -1351,7 +1352,7 @@ describe("Collateral Reserve", async () => {
 
     it("should be revertedWith(`Buyback over excess balance`)", async () => {
       const [owner, pauser, minter, user1] = await ethers.getSigners();
-
+      await collateralReserve.addBalancerWhitelist(user1.address);
       expect(await dopx.balanceOf(user1.address)).to.eq(BIG_ZERO);
 
       // * grant role PAUSER
@@ -1397,7 +1398,7 @@ describe("Collateral Reserve", async () => {
 
     it("should be revertedWith(`Slippage limit reached`)", async () => {
       const [owner, pauser, minter, user1] = await ethers.getSigners();
-
+      await collateralReserve.addBalancerWhitelist(user1.address);
       expect(await dopx.balanceOf(user1.address)).to.eq(BIG_ZERO);
 
       // * grant role PAUSER
@@ -1439,7 +1440,7 @@ describe("Collateral Reserve", async () => {
 
     it("should be revertedWith(`Buyback over excess balance`) if the share price goes up", async () => {
       const [owner, pauser, minter, user1] = await ethers.getSigners();
-
+      await collateralReserve.addBalancerWhitelist(user1.address);
       expect(await dopx.balanceOf(user1.address)).to.eq(BIG_ZERO);
 
       // * grant role PAUSER
@@ -1486,7 +1487,7 @@ describe("Collateral Reserve", async () => {
 
     it("should be revertedWith(`Slippage limit reached`) if the share price goes down", async () => {
       const [owner, pauser, minter, user1] = await ethers.getSigners();
-
+      await collateralReserve.addBalancerWhitelist(user1.address);
       expect(await dopx.balanceOf(user1.address)).to.eq(BIG_ZERO);
 
       // * grant role PAUSER
@@ -1567,7 +1568,7 @@ describe("Collateral Reserve", async () => {
 
     it("should get excessCollateralBalance to be 500k", async () => {
       const [owner, pauser, user1] = await ethers.getSigners();
-
+      await synth.setTokenCap(ethers.constants.MaxUint256);
       expect(await dopx.balanceOf(user1.address)).to.eq(BIG_ZERO);
 
       // * grant role PAUSER
@@ -1603,7 +1604,7 @@ describe("Collateral Reserve", async () => {
     it("should call Min `buyBackShare` which default fee", async () => {
       const [owner, feeCollector, pauser, minter, user1] =
         await ethers.getSigners();
-
+      await collateralReserve.addBalancerWhitelist(user1.address);
       // * buyBackFee = 0%
       expect(await collateralReserve.buybackFee()).to.eq(BIG_ZERO);
 
@@ -1659,7 +1660,7 @@ describe("Collateral Reserve", async () => {
     it("should call Max `buyBackShare` which default fee", async () => {
       const [owner, feeCollector, pauser, minter, user1] =
         await ethers.getSigners();
-
+      await collateralReserve.addBalancerWhitelist(user1.address);
       // * buyBackFee = 0%
       expect(await collateralReserve.buybackFee()).to.eq(BIG_ZERO);
 
@@ -1716,7 +1717,7 @@ describe("Collateral Reserve", async () => {
     it("should call Min `buyBackShare` which set fee to 3%", async () => {
       const [owner, feeCollector, pauser, minter, user1] =
         await ethers.getSigners();
-
+      await collateralReserve.addBalancerWhitelist(user1.address);
       // * set buyBackFee = 3%
       const _buyBackFee = toWei(toPercent("3"));
       await collateralReserve.connect(owner).setBuybackFee(_buyBackFee);
@@ -1778,7 +1779,7 @@ describe("Collateral Reserve", async () => {
     it("should call Max `buyBackShare` which set fee to 3%", async () => {
       const [owner, feeCollector, pauser, minter, user1] =
         await ethers.getSigners();
-
+      await collateralReserve.addBalancerWhitelist(user1.address);
       // * set buyBackFee = 3%
       const _buyBackFee = toWei(toPercent("3"));
       await collateralReserve.connect(owner).setBuybackFee(_buyBackFee);
@@ -1887,6 +1888,7 @@ describe("Collateral Reserve", async () => {
     it("should be revertedWith(`insufficient collateral`)", async () => {
       // * TCR 80% TCR < ECR
       await collateralReserve.setGlobalCollateralRatio(toWei(toPercent("80")));
+      await collateralReserve.addBalancerWhitelist(user1.address);
 
       await expect(
         collateralReserve
@@ -1896,6 +1898,7 @@ describe("Collateral Reserve", async () => {
     });
 
     it("should be revertedWith(`Request recollateralize over limit`)", async () => {
+      await collateralReserve.addBalancerWhitelist(user1.address);
       await expect(
         collateralReserve
           .connect(user1)
@@ -1904,6 +1907,7 @@ describe("Collateral Reserve", async () => {
     });
 
     it("should be revertedWith(`Slippage limit reached`)", async () => {
+      await collateralReserve.addBalancerWhitelist(user1.address);
       await expect(
         collateralReserve
           .connect(user1)
@@ -1914,6 +1918,7 @@ describe("Collateral Reserve", async () => {
     it("should call Max `recollateralizeShare` with Price");
 
     it("should call Max `recollateralizeShare` with bonusRate 0.75%, recollatFee = 0 %", async () => {
+      await collateralReserve.addBalancerWhitelist(user1.address);
       // * bonusRate = 0.75%
       expect(await collateralReserve.bonusRate()).to.eq(
         toWei(toPercent("0.75"))
@@ -1942,6 +1947,7 @@ describe("Collateral Reserve", async () => {
     });
 
     it("should call Max `recollateralizeShare` with bonusRate 3%", async () => {
+      await collateralReserve.addBalancerWhitelist(user1.address);
       // * bonusRate = 3%
       await collateralReserve.setBonusRate(toWei(toPercent("3")));
       expect(await collateralReserve.bonusRate()).to.eq(toWei(toPercent("3")));
@@ -1970,6 +1976,7 @@ describe("Collateral Reserve", async () => {
     });
 
     it("should call Max `recollateralizeShare` with default fee 0%", async () => {
+      await collateralReserve.addBalancerWhitelist(user1.address);
       // * bonusRate = 0.75%
       expect(await collateralReserve.bonusRate()).to.eq(
         toWei(toPercent("0.75"))
@@ -1998,6 +2005,7 @@ describe("Collateral Reserve", async () => {
     });
 
     it("should call Max `recollateralizeShare` which set fee to 1%", async () => {
+      await collateralReserve.addBalancerWhitelist(user1.address);
       // * bonusRate = 0.75%
       expect(await collateralReserve.bonusRate()).to.eq(
         toWei(toPercent("0.75"))
@@ -2029,6 +2037,7 @@ describe("Collateral Reserve", async () => {
     });
 
     it("should call Max `recollateralizeShare` which collat price go to $10", async () => {
+      await collateralReserve.addBalancerWhitelist(user1.address);
       // * bonusRate = 0.75%
       expect(await collateralReserve.bonusRate()).to.eq(
         toWei(toPercent("0.75"))
@@ -2067,6 +2076,7 @@ describe("Collateral Reserve", async () => {
     });
 
     it("should call Max `recollateralizeShare` which set fee to 1%", async () => {
+      await collateralReserve.addBalancerWhitelist(user1.address);
       // * bonusRate = 0.75%
       expect(await collateralReserve.bonusRate()).to.eq(
         toWei(toPercent("0.75"))
@@ -2098,6 +2108,7 @@ describe("Collateral Reserve", async () => {
     });
 
     it("should call min 0 `recollateralizeShare` with bonusRate 0.75%, recollatFee = 0 %", async () => {
+      await collateralReserve.addBalancerWhitelist(user1.address);
       // * bonusRate = 0.75%
       expect(await collateralReserve.bonusRate()).to.eq(
         toWei(toPercent("0.75"))
@@ -2123,6 +2134,7 @@ describe("Collateral Reserve", async () => {
 
     it("should call min 0 `recollateralizeShare` with bonusRate 3%", async () => {
       const [owner] = await ethers.getSigners();
+      await collateralReserve.addBalancerWhitelist(user1.address);
       const _bonusRate = toWei(toPercent("3"));
       await collateralReserve.connect(owner).setBonusRate(_bonusRate);
 
@@ -2139,6 +2151,7 @@ describe("Collateral Reserve", async () => {
     });
 
     it("should call min 0 `recollateralizeShare` with default fee", async () => {
+      await collateralReserve.addBalancerWhitelist(user1.address);
       await collateralReserve
         .connect(user1)
         .recollateralizeShare(usdc.address, BIG_ZERO, BIG_ZERO);
@@ -2152,6 +2165,7 @@ describe("Collateral Reserve", async () => {
 
     it("should call min 0 `recollateralizeShare` which set fee to 1%", async () => {
       const [owner] = await ethers.getSigners();
+      await collateralReserve.addBalancerWhitelist(user1.address);
       const _recallatFee = toWei(toPercent("3"));
       await collateralReserve.connect(owner).setRecollatFee(_recallatFee);
 
@@ -2168,6 +2182,7 @@ describe("Collateral Reserve", async () => {
     });
 
     it("should call min 0 `recollateralizeShare` which collat price go to $10", async () => {
+      await collateralReserve.addBalancerWhitelist(user1.address);
       await setPrice(usdcOracle, 10);
 
       // * tcr < ecr since the price has changed 1$/USDC ->  10$/USDC
@@ -2226,6 +2241,7 @@ describe("Collateral Reserve", async () => {
 
           it("should call Max `recollateralizeShare` with bonusRate 0%, fee 0%", async () => {
             const [, , user1] = await ethers.getSigners();
+            await collateralReserve.addBalancerWhitelist(user1.address);
 
             // * bonusRate = 0%
             // * recollatFee = 0%
@@ -2258,7 +2274,7 @@ describe("Collateral Reserve", async () => {
 
           it("should call Max `recollateralizeShare` with bonusRate 0%, fee 0.7%", async () => {
             const [, feeCollector, user1] = await ethers.getSigners();
-
+            await collateralReserve.addBalancerWhitelist(user1.address);
             await collateralReserve.setBonusRate("0");
             await collateralReserve.setRecollatFee(toWei(toPercent("0.7")));
             await setPrice(usdcOracle, 1);
@@ -2292,7 +2308,7 @@ describe("Collateral Reserve", async () => {
 
           it("should call Max `recollateralizeShare` with bonusRate 3%", async () => {
             const [, , user1] = await ethers.getSigners();
-
+            await collateralReserve.addBalancerWhitelist(user1.address);
             await collateralReserve.setBonusRate(toWei(toPercent("3")));
             await setPrice(usdcOracle, 1);
             await setPrice(dopxOracle, 1);
@@ -2323,6 +2339,7 @@ describe("Collateral Reserve", async () => {
 
         describe("### ECR 0% With 0.000000000000000001 collateral, 30M marketCap", async () => {
           beforeEach(async () => {
+            await synth.setTokenCap(ethers.constants.MaxUint256);
             // * ECR 0%
             await mockECR("1", toWei("30000000"));
             expect(await collateralReserve.getECR()).to.eq("0");
@@ -2330,7 +2347,7 @@ describe("Collateral Reserve", async () => {
 
           it("should call Max `recollateralizeShare` with recollat bonus rate 0% fee 0.7%", async () => {
             const [, , user1] = await ethers.getSigners();
-
+            await collateralReserve.addBalancerWhitelist(user1.address);
             await collateralReserve.setBonusRate("0");
             await collateralReserve.setRecollatFee(toWei(toPercent("0.7")));
             await setPrice(usdcOracle, 1);

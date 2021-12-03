@@ -172,13 +172,12 @@ contract OneClickMint is AccessControlUpgradeable, ReentrancyGuardUpgradeable {
 
     function approveAllowance(IERC20 _token, address _spender) external {
         require(hasRole(MAINTAINER, msg.sender), "Caller is not a maintainer");
-
-        _token.safeApprove(_spender, 2**256 - 1);
+        _token.safeApprove(_spender, type(uint256).max);
     }
 
     function revokeAllowance(IERC20 _token, address _spender) external {
         require(hasRole(MAINTAINER, msg.sender), "Caller is not a maintainer");
-        _token.safeApprove(_spender, 0);
+        require(_token.approve(_spender, 0));
     }
 
     /* ========== EVENTS ========== */

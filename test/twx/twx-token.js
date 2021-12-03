@@ -1,5 +1,10 @@
 const { expect } = require("chai");
-const { ethers } = require("hardhat");
+const {
+  ethers: {
+    utils: { parseEther, formatEther },
+    constants: { MaxUint256 },
+  },
+} = require("hardhat");
 const { BigNumber } = require("ethers");
 const { keccak256 } = require("ethers/lib/utils");
 
@@ -38,7 +43,7 @@ describe("TWX::Mint", function () {
   it("Shall have name SuperDopple", async function () {
     const _name = await twx.name();
     const _symbol = await twx.symbol();
-    expect(_name).to.be.equal("TWX");
+    expect(_name).to.be.equal("Twindex");
     expect(_symbol).to.be.equal("TWX");
   });
 
@@ -145,6 +150,7 @@ describe("TWX::Transfer", function () {
 
   it("Shall transfer", async function () {
     const [owner, minter, user1, user2] = await ethers.getSigners();
+    await twx.setTransferLimit(MaxUint256);
     await twx.connect(user1).transfer(user2.address, ONE);
     let _amount;
     _amount = await twx.balanceOf(user2.address);

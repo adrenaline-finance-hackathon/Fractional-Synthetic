@@ -60,7 +60,7 @@ contract TWX is ERC20BurnableUpgradeable, AccessControlUpgradeable {
         emit SetTransferLimit(_amount);
     }
 
-    uint256 public transferLimit = 30000e18;
+    uint256 public transferLimit;
 
     event SetTransferLimit(uint256 _amount);
 }

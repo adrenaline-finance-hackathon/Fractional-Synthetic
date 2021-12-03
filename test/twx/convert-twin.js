@@ -1,5 +1,10 @@
 const { expect } = require("chai");
-const { ethers } = require("hardhat");
+const {
+  ethers: {
+    utils: { parseEther, formatEther },
+    constants: { MaxUint256 },
+  },
+} = require("hardhat");
 const { BigNumber } = require("ethers");
 const { expectRevert, time } = require("@openzeppelin/test-helpers");
 
@@ -55,6 +60,7 @@ describe("Convert TWIN", function () {
     await twx.connect(owner).grantRole(MINTER, minter.address);
     await twx.connect(minter).mint(convertTwin.address, ONE);
     await twin.mint(user.address, ONE);
+    await twx.setTransferLimit(MaxUint256);
   });
 
   it("must have correct balance before test", async function () {

@@ -16,7 +16,7 @@ contract TempStablePoolOracle is Ownable {
     function consult(
         address, /*_token*/
         uint256 /*_amount*/
-    ) external view returns (uint256) {
+    ) external pure returns (uint256) {
         return 1e18;
     }
 }

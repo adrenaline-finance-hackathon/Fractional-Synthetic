@@ -1,12 +1,15 @@
 const { expect } = require("chai");
-const { ethers } = require("hardhat");
+const {
+  ethers: {
+    utils: { parseEther, formatEther },
+    constants: { MaxUint256 },
+  },
+} = require("hardhat");
 
 // CONSTANTS
 const ONE = ethers.utils.parseEther("1");
 const ZERO = ethers.utils.parseEther("0");
 const burnPool = "0x000000000000000000000000000000000000dEaD";
-const MAX_INT =
-  "57896044618658097711785492504343953926634992332820282019728792003956564819967";
 
 describe("Convert Dopple", function () {
   let doppleX;
@@ -39,8 +42,9 @@ describe("Convert Dopple", function () {
     await doppleX
       .connect(owner)
       .grantRole(ethers.utils.id("MINTER"), minter.address);
-    await doppleX.connect(minter).mint(convertDopple.address, ONE);
+    await doppleX.connect(minter).mint(convertDopple.address, parseEther("1"));
     await dop.mint(user.address, ONE);
+    await doppleX.setTransferLimit(MaxUint256);
   });
 
   it("must have correct balance before test", async function () {

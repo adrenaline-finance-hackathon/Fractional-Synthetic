@@ -577,7 +577,6 @@ const setupContract = async (tcr) => {
     collateralReserve.address,
     usdc.address,
     synth.address,
-    synthOracle.address,
     doppleX.address,
     owner.address,
   ]);
@@ -600,6 +599,7 @@ const setupContract = async (tcr) => {
   await doppleX.mint(minter.address, toWei("1000000"));
   await doppleX.mint(owner.address, toWei("1000000"));
   await approveAll();
+  await doppleX.setTransferLimit(ethers.constants.MaxUint256);
 };
 
 const mintSynth = async (amount, tcr) => {

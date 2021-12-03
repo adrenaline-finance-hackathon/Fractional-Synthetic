@@ -1,5 +1,9 @@
 const { expect } = require("chai");
-const { ethers } = require("hardhat");
+const {
+  ethers: {
+    constants: { MaxUint256 },
+  },
+} = require("hardhat");
 const { toWei } = require("../utils");
 
 // CONSTANTS
@@ -133,6 +137,7 @@ describe("Super Dopple::Transfer", function () {
       .connect(owner)
       .grantRole(ethers.utils.id("MINTER"), minter.address);
     await superDop.connect(minter).mint(user1.address, toWei("2000"));
+    await superDop.setTransferLimit(MaxUint256);
   });
 
   it("Shall transfer", async function () {

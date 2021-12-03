@@ -790,50 +790,6 @@ describe("OneClickMint", () => {
       expect(await oneClickMint.routerPath(1)).to.eq(doppleX.address);
     });
 
-    it("can not call function `setSlippage` if msg.sender is not a maintainer", async () => {
-      const tcr = toWei(toPercent("50"));
-      await setupContract(tcr);
-
-      await expect(
-        oneClickMint.connect(minter).setSlippage(toWei(toPercent("1")))
-      ).to.be.revertedWith("Caller is not a maintainer");
-    });
-
-    it("can call function `setSlippage` if msg.sender is a maintainer", async () => {
-      const tcr = toWei(toPercent("50"));
-      await setupContract(tcr);
-      expect(await oneClickMint.slippage()).to.eq(toWei(toPercent("5")));
-      await oneClickMint.connect(maintainer).setSlippage(toWei(toPercent("1")));
-
-      expect(await oneClickMint.slippage()).to.eq(toWei(toPercent("1")));
-      await expect(
-        oneClickMint.connect(maintainer).setSlippage(toWei(toPercent("11")))
-      ).to.be.revertedWith("SLIPPAGE TOO HIGH");
-    });
-
-    it("can not call function `setOffset` if msg.sender is not a maintainer", async () => {
-      const tcr = toWei(toPercent("50"));
-      await setupContract(tcr);
-
-      await expect(
-        oneClickMint.connect(minter).setOffset(toWei(toPercent("0.05")))
-      ).to.be.revertedWith("Caller is not a maintainer");
-    });
-
-    it("can call function `setOffset` if msg.sender is a maintainer", async () => {
-      const tcr = toWei(toPercent("50"));
-      await setupContract(tcr);
-      expect(await oneClickMint.offset()).to.eq(toWei(toPercent("0.11")));
-      await oneClickMint
-        .connect(maintainer)
-        .setOffset(toWei(toPercent("0.05")));
-
-      expect(await oneClickMint.offset()).to.eq(toWei(toPercent("0.05")));
-      await expect(
-        oneClickMint.connect(maintainer).setOffset(toWei(toPercent("0.6")))
-      ).to.be.revertedWith("OFFSET TOO HIGH");
-    });
-
     it("can not call function `addWhitelistContract` if msg.sender is not a maintainer", async () => {
       const tcr = toWei(toPercent("50"));
       await setupContract(tcr);
@@ -854,6 +810,7 @@ describe("OneClickMint", () => {
       const _collateralAmount = toWei("1000");
       const _synthOutMin = 0;
       const _offset = toWei(toPercent("0.11"));
+      const _swapShareOutMin = 0;
       await expect(
         oneClickMint
           .connect(minter)
@@ -868,6 +825,7 @@ describe("OneClickMint", () => {
       const _collateralAmount = toWei("1000");
       const _synthOutMin = 0;
       const _offset = toWei(toPercent("0.11"));
+      const _swapShareOutMin = 0;
 
       await expect(
         oneClickMint
@@ -883,6 +841,7 @@ describe("OneClickMint", () => {
       const _collateralAmount = toWei("1000");
       const _synthOutMin = 0;
       const _offset = toWei(toPercent("0.11"));
+      const _swapShareOutMin = 0;
 
       await expect(
         oneClickMint
@@ -898,6 +857,7 @@ describe("OneClickMint", () => {
       const _collateralAmount = toWei("1000");
       const _synthOutMin = 0;
       const _offset = toWei(toPercent("0.11"));
+      const _swapShareOutMin = 0;
 
       await expect(
         oneClickMint
@@ -913,6 +873,7 @@ describe("OneClickMint", () => {
       const _collateralAmount = toWei("1000");
       const _synthOutMin = 0;
       const _offset = toWei(toPercent("0.11"));
+      const _swapShareOutMin = 0;
 
       await expect(
         oneClickMint
@@ -928,6 +889,7 @@ describe("OneClickMint", () => {
       const _collateralAmount = toWei("1000");
       const _synthOutMin = 0;
       const _offset = toWei(toPercent("0.11"));
+      const _swapShareOutMin = 0;
 
       await expect(
         oneClickMint
@@ -943,6 +905,8 @@ describe("OneClickMint", () => {
       const _collateralAmount = toWei("1000");
       const _synthOutMin = 0;
       const _offset = toWei(toPercent("0.11"));
+      const _swapShareOutMin = 0;
+
       await expect(
         oneClickMint
           .connect(minter)
@@ -957,6 +921,7 @@ describe("OneClickMint", () => {
       const _collateralAmount = toWei("1000");
       const _synthOutMin = 0;
       const _offset = toWei(toPercent("0.10"));
+      const _swapShareOutMin = 0;
 
       await expect(
         oneClickMint
@@ -972,6 +937,8 @@ describe("OneClickMint", () => {
       const _collateralAmount = toWei("1000");
       const _synthOutMin = 0;
       const _offset = toWei(toPercent("0.10"));
+      const _swapShareOutMin = 0;
+
       await expect(
         oneClickMint
           .connect(minter)
@@ -986,6 +953,7 @@ describe("OneClickMint", () => {
       const _collateralAmount = toWei("1000");
       const _synthOutMin = 0;
       const _offset = toWei(toPercent("0.10"));
+      const _swapShareOutMin = 0;
 
       await expect(
         oneClickMint
@@ -1000,6 +968,7 @@ describe("OneClickMint", () => {
       const _collateralAmount = toWei("1000");
       const _synthOutMin = 0;
       const _offset = toWei(toPercent("0.10"));
+      const _swapShareOutMin = 0;
 
       await expect(
         oneClickMint
@@ -1015,6 +984,7 @@ describe("OneClickMint", () => {
       const _collateralAmount = toWei("1000");
       const _synthOutMin = 0;
       const _offset = toWei(toPercent("0.12"));
+      const _swapShareOutMin = 0;
 
       await expect(
         oneClickMint
@@ -1030,42 +1000,7 @@ describe("OneClickMint", () => {
       const _collateralAmount = toWei("1000");
       const _synthOutMin = 0;
       const _offset = toWei(toPercent("0.12"));
-
-      await expect(
-        oneClickMint
-          .connect(minter)
-          .quickMint(_collateralAmount, _swapShareOutMin, _offset, _synthOutMin)
-      ).not.to.reverted;
-    });
-
-    it("offset 0.12% ,TCR 60%", async () => {
-      const tcr = toWei(toPercent("60"));
-      await setupContract(tcr);
-      await oneClickMint
-        .connect(maintainer)
-        .setOffset(toWei(toPercent("0.12")));
-
-      const _collateralAmount = toWei("1000");
-      const _synthOutMin = 0;
-      const _offset = toWei(toPercent("0.12"));
-
-      await expect(
-        oneClickMint
-          .connect(minter)
-          .quickMint(_collateralAmount, _swapShareOutMin, _offset, _synthOutMin)
-      ).not.to.reverted;
-    });
-
-    it("offset 0.12% ,TCR 70%", async () => {
-      const tcr = toWei(toPercent("70"));
-      await setupContract(tcr);
-      await oneClickMint
-        .connect(maintainer)
-        .setOffset(toWei(toPercent("0.12")));
-
-      const _collateralAmount = toWei("1000");
-      const _synthOutMin = 0;
-      const _offset = toWei(toPercent("0.12"));
+      const _swapShareOutMin = 0;
 
       await expect(
         oneClickMint
@@ -1253,6 +1188,8 @@ const setupContract = async (tcr) => {
   await kusdPool.toggleRedeeming();
   await kusdPool.connect(maintainer).setMintingFee(toWei("0"));
   await doppleX.mint(owner.address, toWei("1000000"));
+  await doppleX.setTransferLimit(ethers.constants.MaxUint256);
+  await kusdPool.addWhitelistContract(oneClickMint.address);
   await approveAll();
 
   // ! for quick mint
