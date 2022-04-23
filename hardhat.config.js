@@ -12,7 +12,7 @@ require("@openzeppelin/hardhat-upgrades");
 
 const { removeConsoleLog } = require("hardhat-preprocessor");
 
-require("./hardhat");
+//require("./hardhat");
 
 // You need to export an object to set up your config
 // Go to https://hardhat.org/config/ to learn more
@@ -38,46 +38,38 @@ const getAccounts = (isProduction) =>
  * @type import('hardhat/config').HardhatUserConfig
  */
 module.exports = {
+  paths: {
+    artifacts: './artifacts'
+  },
   networks: {
     // ** LOCAL **
     hardhat: {
-      saveDeployments: true,
-      forking: {
-        url:
-          process.env.CUSTOM_RPC_URL ||
-          "https://silent-dry-snow.bsc.quiknode.pro/f1f2b47a65d0915c18d72f3928a57c8c3b3e8b04/",
-        // blockNumber has no specific means latest block
-        // blockNumber: "8888888",
-        enabled: false, // ! disable forking for manual fork each test file
-      },
-      tags: ["test", "local"],
+      // saveDeployments: true,
+      chainId: 1337
+      // forking: {
+      //   url:
+      //     process.env.CUSTOM_RPC_URL ||
+      //     "https://rinkeby.infura.io/v3/30d6fb21c68f44f8aed1dbeb583a1b0c",
+      //   // blockNumber has no specific means latest block
+      //   // blockNumber: "8888888",
+      //   enabled: false, // ! disable forking for manual fork each test file
+      // },
+      // tags: ["test", "local"],
     },
 
     // ** TESTNET LIST **
-    bscTest: {
-      url: "https://data-seed-prebsc-1-s1.binance.org:8545",
+    ethTest: {
+      url: "hhttps://rinkeby.infura.io/v3/30d6fb21c68f44f8aed1dbeb583a1b0c",
       saveDeployments: true,
-      tags: ["bscTest"],
-      accounts: getAccounts(),
-    },
-    mumbai: {
-      url: "https://rpc-mumbai.maticvigil.com",
-      saveDeployments: true,
-      tags: ["maticTest"],
+      tags: ["ethTest"],
       accounts: getAccounts(),
     },
 
     // ** MAINNET LIST **
-    bsc: {
-      url: "https://bsc-dataseed.binance.org",
+    eth: {
+      url: "https://mainnet.infura.io/v3/30d6fb21c68f44f8aed1dbeb583a1b0c",
       saveDeployments: true,
-      tags: ["bsc"],
-      accounts: getAccounts(true),
-    },
-    matic: {
-      url: "https://rpc-mainnet.matic.quiknode.pro",
-      saveDeployments: true,
-      tags: ["matic"],
+      tags: ["eth"],
       accounts: getAccounts(true),
     },
   },

@@ -210,7 +210,7 @@ contract MasterChef is OwnableUpgradeable {
             .mul(pool.allocPoint)
             .div(totalAllocPoint);
 
-        uint256 devReward = doppleReward.div(10);
+        uint256 devReward = 0;
         uint256 doppleReward = totalReward.sub(devReward);
         doppleX.mint(devaddr, devReward);
         doppleX.mint(address(this), doppleReward);

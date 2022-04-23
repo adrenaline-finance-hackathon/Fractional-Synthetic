@@ -25,7 +25,7 @@ const MINTER = ethers.utils.id("MINTER");
 const PAUSER = ethers.utils.id("PAUSER");
 const MAINTAINER = ethers.utils.id("MAINTAINER");
 const UNISWAP_ABI = JSON.parse(
-  fs.readFileSync("abis/uniswapRouter.json").toString()
+  fs.readFileSync("abis/swap.json").toString()
 );
 
 let owner, minter, feeCollector, pauser, maintainer, result;

@@ -15,4 +15,4 @@ yarn.lock
 
 .openzeppelin/unknown-*.json
 
-bscTest/solcInputs/
+ethTest/solcInputs/
